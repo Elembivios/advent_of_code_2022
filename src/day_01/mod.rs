@@ -5,7 +5,6 @@ pub struct CalorieCounting {
 
 impl crate::Advent for CalorieCounting {
     fn new(data: &str) -> Self {
-        println!("Data: {:?}", data);
         let elf_supplies: Vec<&str> = data.lines().collect();
         let data = elf_supplies
             .split(|line| line.is_empty())
@@ -15,8 +14,7 @@ impl crate::Advent for CalorieCounting {
                     .map(|val| val.parse().unwrap())
                     .collect()
             })
-            .collect();            
-        println!("Data: {:?}", data);        
+            .collect();
         CalorieCounting { data }
     }
 
