@@ -18,21 +18,21 @@ impl crate::Advent for CalorieCounting {
         CalorieCounting { data }
     }
 
-    fn part_01(&self) -> usize {
+    fn part_01(&self) -> String {
         self.data
             .iter()
             .map(|values| {
                 values.iter().sum::<u32>()
-            }).max().unwrap() as usize
+            }).max().unwrap().to_string()
     }
     
-    fn part_02(&self) -> usize {
+    fn part_02(&self) -> String {
         let mut calories_sum: Vec<u32> = self.data
             .iter()
             .map(|values| {
                 values.iter().sum::<u32>()
             }).collect();
         calories_sum.sort();
-        calories_sum.iter().rev().take(3).sum::<u32>() as usize
+        calories_sum.iter().rev().take(3).sum::<u32>().to_string()
     }
 }

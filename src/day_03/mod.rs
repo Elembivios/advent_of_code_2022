@@ -58,7 +58,7 @@ impl crate::Advent for RucksackReorganization {
         RucksackReorganization { data }
     }    
     
-    fn part_01(&self) -> usize {
+    fn part_01(&self) -> String {
         let mut common_chars: Vec<char> = vec![];
         for (lhs, rhs) in &self.data {
             let c = get_common_char(lhs, rhs);
@@ -68,10 +68,10 @@ impl crate::Advent for RucksackReorganization {
         }
         common_chars.iter()
             .map(|c| char_priority(*c))
-            .sum::<usize>()
+            .sum::<usize>().to_string()
     }
     
-    fn part_02(&self) -> usize {
+    fn part_02(&self) -> String {
         let mut common_chars: Vec<char> = vec![];
         for items in self.data.chunks(3) {
             let lines: Vec<String> = items
@@ -88,6 +88,6 @@ impl crate::Advent for RucksackReorganization {
 
         common_chars.iter()
             .map(|c| char_priority(*c))
-            .sum::<usize>()        
+            .sum::<usize>().to_string()     
     }
 }

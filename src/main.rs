@@ -2,6 +2,7 @@ mod day_01;
 mod day_02;
 mod day_03;
 mod day_04;
+mod day_05;
 
 use std::{error::Error, fs};
 use structopt::StructOpt;
@@ -22,8 +23,8 @@ trait Advent {
     fn new(data: &str) -> Self
     where 
         Self: Sized;
-    fn part_01(&self) -> usize;
-    fn part_02(&self) -> usize;
+    fn part_01(&self) -> String;
+    fn part_02(&self) -> String;
 }
 
 struct Solution {
@@ -83,7 +84,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let days = if let Some(day) = args.day {
         day..=day
     } else {
-        1u32..=4u32
+        1u32..=5u32
     };
     let mut duration = Duration::new(0, 0);
 
@@ -92,13 +93,14 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         let mut content: &str = &fs::read_to_string(filename)
             .with_context(|| format!("Could not read {} file for day {}", main_file, day))?;
-        content = content.trim();
+        content = content.trim_end();
 
         let solution = match day {
             1 => Solution::new::<day_01::CalorieCounting>(content),
             2 => Solution::new::<day_02::RockPaperScissors>(content),
             3 => Solution::new::<day_03::RucksackReorganization>(content),
             4 => Solution::new::<day_04::CampCleanup>(content),
+            5 => Solution::new::<day_05::SupplyStacks>(content),
             _ => unreachable!(),
         };
 

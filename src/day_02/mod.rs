@@ -130,7 +130,7 @@ impl crate::Advent for RockPaperScissors {
         RockPaperScissors { data }
     }
 
-    fn part_01(&self) -> usize {
+    fn part_01(&self) -> String {
         self.data.iter()
             .map(|(lhs, rhs)| {
                 let lhs = Shape::from_str(lhs).unwrap();
@@ -139,10 +139,10 @@ impl crate::Advent for RockPaperScissors {
                 let score = rhs.score(&outcome);           
                 // println!("{:?} vs {:?} score: {}", rhs, lhs, score);
                 score
-            }).sum::<i32>() as usize
+            }).sum::<i32>().to_string()
     }
 
-    fn part_02(&self) -> usize {
+    fn part_02(&self) -> String {
         self.data.iter()
             .map(|(lhs, rhs)| {
                 let opponent_played = Shape::from_str(lhs).unwrap();
@@ -151,6 +151,6 @@ impl crate::Advent for RockPaperScissors {
                 let score = shape.value() + expected_outcome.value();
                 // println!("{:?} vs {:?} score: {:?}", shape, opponent_played, score);
                 score
-            }).sum::<i32>() as usize
+            }).sum::<i32>().to_string()
     }
 }

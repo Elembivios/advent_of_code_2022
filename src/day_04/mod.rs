@@ -19,7 +19,7 @@ impl crate::Advent for CampCleanup {
         CampCleanup { data }
     }
 
-    fn part_01(&self) -> usize {
+    fn part_01(&self) -> String {
         let mut fully_contained_sum: usize = 0;
         for pair in &self.data {
             let lhs_ord = pair.0.start().cmp(&pair.1.start());
@@ -28,10 +28,10 @@ impl crate::Advent for CampCleanup {
                 fully_contained_sum += 1;
             }
         }
-        fully_contained_sum
+        fully_contained_sum.to_string()
     }
 
-    fn part_02(&self) -> usize {
+    fn part_02(&self) -> String {
         let mut num_overlap: usize = 0;
         for pair in &self.data {
             let lhs_ord = pair.0.end().cmp(&pair.1.start());
@@ -40,6 +40,6 @@ impl crate::Advent for CampCleanup {
                 num_overlap += 1; 
             }
         }
-        num_overlap
+        num_overlap.to_string()
     }
 }
