@@ -1,7 +1,7 @@
 
-use core::ops::Range;
+use std::ops::RangeInclusive;
 pub struct CampCleanup {
-    data: Vec<(Range<u32>, Range<u32>)>
+    data: Vec<(RangeInclusive<u32>, RangeInclusive<u32>)>
 }
 
 impl crate::Advent for CampCleanup {
@@ -12,18 +12,34 @@ impl crate::Advent for CampCleanup {
                 let pairs: Vec<Vec<u32>> = l.split(",").map(|pair| {
                     pair.split("-").map(|num| num.parse::<u32>().unwrap()).collect()
                 }).collect();
-                ((pairs[0][0]..pairs[0][1]), (pairs[1][0]..pairs[1][1]))
+                ((pairs[0][0]..=pairs[0][1]), (pairs[1][0]..=pairs[1][1]))
             }).collect();
 
-        println!("Data: {:?}", data);
+        // println!("Data: {:?}", data);
         CampCleanup { data }
     }
 
     fn part_01(&self) -> usize {
-        1
+        let mut fully_contained_sum: usize = 0;
+        for pair in &self.data {
+            let lhs_ord = pair.0.start().cmp(&pair.1.start());
+            let rhs_ord = pair.0.end().cmp(&pair.1.end());
+            if lhs_ord != rhs_ord || lhs_ord.is_eq() || rhs_ord.is_eq() {
+                fully_contained_sum += 1;
+            }
+        }
+        fully_contained_sum
     }
 
     fn part_02(&self) -> usize {
-        2
+        let mut num_overlap: usize = 0;
+        for pair in &self.data {
+            let lhs_ord = pair.0.end().cmp(&pair.1.start());
+            let rhs_ord = pair.0.start().cmp(&pair.1.end());
+            if !(lhs_ord.is_lt() || rhs_ord.is_gt()) {
+                num_overlap += 1; 
+            }
+        }
+        num_overlap
     }
 }
