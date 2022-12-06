@@ -1,26 +1,22 @@
+// use anyhow::{Result, bail};
 
 pub struct TuningTrouble {
     data: Vec<char>
 }
 
 impl TuningTrouble {
-    // My implementation, that is slower by factor of 10
-    // fn same_chars_pos<const SIZE: usize>(&self) -> Option<String> {
-    //     let last_chars: Result<[char; SIZE], _> = self.data[0..SIZE].try_into();
-    //     match last_chars {
-    //         Err(_e) => None,
-    //         Ok(mut last_chars) => {
-    //             for (i, chr) in self.data.iter().enumerate().skip(SIZE) {
-    //                 let num_unique = last_chars.iter().unique().count(); // Count unique
-    //                 if num_unique == SIZE {
-    //                     return Some(i.to_string());
-    //                 }
-    //                 last_chars.rotate_left(1);
-    //                 last_chars[SIZE - 1] = *chr; // Insert new char in last position
-    //             }
-    //             None
+    // My implementation, that is slower by factor of 10 :,(
+    // fn same_chars_pos_02<const SIZE: usize>(&self) -> Result<String> {
+    //     let mut last_chars: [char; SIZE] = self.data[0..SIZE].try_into()?;
+    //     for (i, chr) in self.data.iter().enumerate().skip(SIZE) {
+    //         let num_unique = last_chars.iter().count(); // Count unique
+    //         if num_unique == SIZE {
+    //             return Ok(i.to_string());
     //         }
+    //         last_chars.rotate_left(1);
+    //         last_chars[SIZE - 1] = *chr; // Insert new char in last position
     //     }
+    //     bail!("Could not find {} of the same chars.", SIZE);
     // }
 
     fn same_chars_pos(&self, size: usize) -> usize {
