@@ -111,7 +111,7 @@ where
     T: Display
 {
     current: Node<T>,
-    queue: Vec<usize> // Number of children to check for each node down the tree
+    queue: Vec<usize> // Number of children we have checked for each node down the tree
 }
 
 impl<T> InOrderIterator<T>
