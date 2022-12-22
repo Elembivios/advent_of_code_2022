@@ -49,9 +49,13 @@ impl Solution {
     fn get_result(&self, day: u32) -> Duration {
         let (part1, time1) = get_time(|| self.event.part_01());
         let (part2, time2) = get_time(|| self.event.part_02());
-
+        let time_sum = self.time + time1 + time2;
         println!("--------------------------");
-        println!("Solution for day {}", day.fg::<Cyan>());
+        println!(
+            "Solution for day {} in {}", 
+            day.fg::<Cyan>(),
+            format_duration(time_sum).fg::<Cyan>()
+        );
         println!(
             "Collected data in {}",
             format_duration(self.time).fg::<Magenta>()    
@@ -66,7 +70,7 @@ impl Solution {
             part2.fg::<Cyan>(),
             format_duration(time2).fg::<Magenta>()
         );
-        self.time + time1 + time2
+        time_sum
     }
 }
 
