@@ -1,5 +1,6 @@
 use std::{str::FromStr, fmt};
 use crate::utils::point::*;
+use std::io;
 
 pub struct RopeBridge {
     commands: Vec<(Direction, usize)>
@@ -21,27 +22,37 @@ impl FromStr for Direction {
 }
 
 impl Coord<isize> {
-    fn step(&mut self, tail: &mut Coord<isize>, direction: &Direction) -> bool {
+    fn move_to(&mut self, direction: &Direction) {
         let dir_vec: Coord<isize> = direction.into();
-        let axis: Axis = direction.into();
-        *self += dir_vec.clone();
-        let diff = match direction {
-            Direction::E => { tail.x - self.x },
-            Direction::W => { self.x - tail.x },
-            Direction::N => { self.y - tail.y },
-            Direction::S => { tail.y - self.y },
-        };
-        // println!("Diff: {:?}", diff);
-        // Check if the tail needs to move
-        if diff > 1 {
-            // Changes x or y by dir_vec
-            *tail.get_mut(&axis) += dir_vec.get(&axis);
-            // Sets x or y to be the same as self (head)
-            let other_axis = axis.other();
+        *self += dir_vec;
+    }
+
+    fn tail_need_to_move(&self, tail: &Coord<isize>) -> Option<Direction> {
+        let x_diff = self.x - tail.x;
+        let y_diff = self.y - tail.y;
+        match (x_diff, y_diff) {
+            ( 2,  2) => Some(Direction::NE),
+            ( 2, -2) => Some(Direction::SE),
+            (-2,  2) => Some(Direction::NW),
+            (-2, -2) => Some(Direction::SW),
+
+            ( 2,  _) => Some(Direction::E),
+            (-2,  _) => Some(Direction::W),
+            ( _,  2) => Some(Direction::N),
+            ( _, -2) => Some(Direction::S),
+            _ => None
+        }
+    }
+
+    fn update_tail(&self, tail: &mut Coord<isize>, direction: &Direction) {
+        let axes: Vec<Axis> = direction.affected_axes();
+        let dir_vec: Coord<isize> = direction.into();
+        for axis in &axes {            
+            *tail.get_mut(&axis) += dir_vec.get(axis);            
+        }
+        if axes.len() == 1 {
+            let other_axis = axes[0].other();
             *tail.get_mut(&other_axis) = *self.get(&other_axis);
-            true
-        } else {
-            false
         }
     }
 }
@@ -78,13 +89,14 @@ impl crate::Advent for RopeBridge {
     fn part_02(&self) -> String {
         let mut rope = Rope { 
             head: Coord::new(0, 0),
-            tail: (0..10).map(|_| Coord::new(0, 0)).into_iter().collect()
+            tail: (0..9).map(|_| Coord::new(0, 0)).into_iter().collect()
         };
         let mut end_positions: Vec<Coord<isize>> = vec![Coord::new(0, 0)];
 
         for (dir, steps) in &self.commands {            
             let mut new_end_positions = rope.exec_command(dir, *steps);
             end_positions.append(&mut new_end_positions);        
+            // rope.print_and_wait();
         }
 
         end_positions.sort_unstable();
@@ -100,27 +112,35 @@ struct Rope {
 }
 
 impl Rope {
+    #[allow(dead_code)]
+    fn print_and_wait(&self) {
+        print!("{esc}c", esc = 27 as char);
+        println!("{:?}", self);    
+        let mut answer = String::new();
+        io::stdin().read_line(&mut answer).ok().unwrap();        
+    }
+
     fn exec_command(&mut self, dir: &Direction, steps: usize) -> Vec<Coord<isize>> {
         let mut end_positions: Vec<Coord<isize>> = vec![];
         let last_index = self.tail.len() - 1;
-        for x in 0..steps {
-            println!("{:?}", self);
-            
-            print!("{esc}c", esc = 27 as char);
+        for _step in 0..steps {
+
+            self.head.move_to(&dir);
             let mut current = &mut self.head;
-            for (i, part) in self.tail.iter_mut().enumerate() {
-                
-                let part_moved = current.step(part, dir);
-                println!("Step: {}, Current: {}, Part: {}-{}, Moved: {}", x, current, i,  part, part_moved);
-                if !part_moved {
+            for (i, part) in self.tail.iter_mut().enumerate() {                
+                let part_needs_to_move = current.tail_need_to_move(part);
+
+                let Some(direction) = part_needs_to_move else {
                     break;
-                }
+                };
+
+                current.update_tail(part, &direction);
                 current = part;
                 if i == last_index {
-                    end_positions.push(current.clone());
-                }
+                    end_positions.push(current.clone())
+                }                
             }
-            println!("Head: {:?}, Tail: {:?}", self.head, self.tail);
+                     
         }
         end_positions
     }
@@ -128,10 +148,10 @@ impl Rope {
 
 impl fmt::Debug for Rope {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let min: isize = -7;
-        let max: isize = 7;
+        let min: isize = -15;
+        let max: isize = 15;
         write!(f, "\n")?;
-        for y in min..=max {
+        for y in (min..=max).rev() {
             let s: String = (min..=max).map(|x| {
                 let current: Coord<isize> = Coord::new(x, y);
                 if self.head == current {
@@ -140,7 +160,7 @@ impl fmt::Debug for Rope {
                 if let Some(pos) = self.tail.iter().position(|coord| {
                     *coord == current
                 }) {
-                    return char::from_digit(pos as u32, 10).unwrap();
+                    return char::from_digit((pos + 1) as u32, 10).unwrap_or('#');
                 }
                 if current.x == 0 && current.y == 0 {
                     return 'X';
@@ -189,15 +209,55 @@ mod tests {
     }
 
     #[test]
-    fn test_right() {
+    fn visual_test_small_example() {            
         let mut rope = Rope {
             head: Coord::new(0, 0),
-            tail: vec![
-                Coord::new(0, 0),
-                Coord::new(0, 0)
-            ]
+            tail: (0..9).map(|_| Coord::new(0, 0)).into_iter().collect()
         };    
-        let tail_positions = rope.exec_command(&Direction::W, 4); 
+        let commands: Vec<(Direction, usize)> = vec![
+            (Direction::E, 4),
+            (Direction::N, 4),
+            (Direction::W, 3),
+            (Direction::S, 1),
+            (Direction::E, 4),
+            (Direction::S, 1),
+            (Direction::W, 5),
+            (Direction::E, 2),
+        ];
+        for (dir, steps) in &commands {
+            rope.exec_command(dir, *steps);
+            rope.print_and_wait();
+        }
+    }
+
+    #[test]
+    fn test_big_example() {            
+        let mut rope = Rope {
+            head: Coord::new(0, 0),
+            tail: (0..9).map(|_| Coord::new(0, 0)).into_iter().collect()
+        };    
+        let commands: Vec<(Direction, usize)> = vec![
+            (Direction::E, 5),
+            (Direction::N, 8),
+            (Direction::W, 8),
+            (Direction::S, 3),
+            (Direction::E, 17),
+            (Direction::S, 10),
+            (Direction::W, 25),
+            (Direction::N, 20),
+        ];
+        let mut tail_positions: Vec<Coord<isize>> = vec![Coord::new(0,0)];
+        for (dir, steps) in &commands {
+            let mut new_tail_pos = rope.exec_command(dir, *steps);            
+            tail_positions.append(&mut new_tail_pos);
+        }
+        assert_eq!(tail_positions.len(), 36);
+        let tail_pos_rope = Rope {
+            head: tail_positions[0].clone(),
+            tail: tail_positions.into_iter().skip(1).collect()
+        };
         
+        tail_pos_rope.print_and_wait();
     }
 }
+
