@@ -7,6 +7,7 @@ mod day_05;
 mod day_06;
 mod day_07;
 mod day_08;
+mod day_09;
 
 use std::{error::Error, fs};
 use structopt::StructOpt;
@@ -92,7 +93,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let days = if let Some(day) = args.day {
         day..=day
     } else {
-        1u32..=8u32
+        1u32..=9u32
     };
     let mut duration = Duration::new(0, 0);
 
@@ -112,6 +113,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             6 => Solution::new::<day_06::TuningTrouble>(content),
             7 => Solution::new::<day_07::NoSpaceLeftOnDevice>(content),
             8 => Solution::new::<day_08::TreeTopTreeHouse>(content),
+            9 => Solution::new::<day_09::RopeBridge>(content),
             _ => unreachable!(),
         };
 
