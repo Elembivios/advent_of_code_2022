@@ -105,6 +105,7 @@ impl Rope {
         let last_index = self.tail.len() - 1;
         for x in 0..steps {
             println!("{:?}", self);
+            
             print!("{esc}c", esc = 27 as char);
             let mut current = &mut self.head;
             for (i, part) in self.tail.iter_mut().enumerate() {
