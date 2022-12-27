@@ -98,15 +98,32 @@ where
 {
     fn from(direction: &Direction) -> Self {
         match direction {
-            Direction::N => Coord::new(T::zero(), T::one()),
-            Direction::E => Coord::new(-T::one(), T::zero()),
-            Direction::S => Coord::new(T::zero(), -T::one()),
-            Direction::W => Coord::new(T::one(), T::zero()),
+            Direction::N  => Coord::new( T::zero(), T::one()), 
+            Direction::E  => Coord::new( T::one(),  T::zero()),
+            Direction::S  => Coord::new( T::zero(),-T::one()),
+            Direction::W  => Coord::new(-T::one(),  T::zero()),
+            Direction::NE => Coord::new( T::one(),  T::one()),
+            Direction::NW => Coord::new(-T::one(),  T::one()),
+            Direction::SE => Coord::new( T::one(), -T::one()),
+            Direction::SW => Coord::new(-T::one(), -T::one()),
         }
     }
 }
 
-pub enum Direction { N, E, S, W }
+pub enum Direction { 
+    N, E, S, W,
+    NE, NW, SE, SW
+}
+
+impl Direction {
+    pub fn affected_axes(&self) -> Vec<Axis> {        
+        match self {
+            Direction::N | Direction::S => vec![Axis::Y],
+            Direction::W | Direction::E => vec![Axis::X],
+            _ => vec![Axis::X, Axis::Y]
+        }
+    }
+}
 
 pub enum Axis { X, Y }
 
@@ -118,13 +135,3 @@ impl Axis {
         }
     }
 }
-
-impl From<&Direction> for Axis {
-    fn from(direction: &Direction) -> Self {
-        match direction {
-            Direction::N | Direction::S => Axis::Y,
-            _ => Axis::X
-        }
-    }
-}
-
