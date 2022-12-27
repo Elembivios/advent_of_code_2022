@@ -103,15 +103,11 @@ impl Rope {
     fn exec_command(&mut self, dir: &Direction, steps: usize) -> Vec<Coord<isize>> {
         let mut end_positions: Vec<Coord<isize>> = vec![];
         let last_index = self.tail.len() - 1;
-        for x in 0..steps {
-            println!("{:?}", self);
-            
-            print!("{esc}c", esc = 27 as char);
+        for x in 0..steps {        
             let mut current = &mut self.head;
             for (i, part) in self.tail.iter_mut().enumerate() {
                 
                 let part_moved = current.step(part, dir);
-                println!("Step: {}, Current: {}, Part: {}-{}, Moved: {}", x, current, i,  part, part_moved);
                 if !part_moved {
                     break;
                 }
@@ -120,7 +116,6 @@ impl Rope {
                     end_positions.push(current.clone());
                 }
             }
-            println!("Head: {:?}, Tail: {:?}", self.head, self.tail);
         }
         end_positions
     }
