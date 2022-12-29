@@ -2,7 +2,7 @@ use std::fmt;
 use std::cmp::Ordering;
 use std::ops::{Add, Sub, AddAssign, SubAssign};
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Coord<T> {
     pub x: T,
     pub y: T
@@ -110,6 +110,13 @@ where
     }
 }
 
+impl<T> From<(T, T)> for Coord<T>
+{
+    fn from(tuple: (T, T)) -> Self {
+        Coord::new( tuple.0, tuple.1 )
+    }
+}
+
 pub enum Direction { 
     N, E, S, W,
     NE, NW, SE, SW
@@ -133,5 +140,73 @@ impl Axis {
             Axis::X => Axis::Y,
             Axis::Y => Axis::X
         }
+    }
+}
+
+
+#[derive(PartialEq, Eq, Debug, Hash)]
+pub struct Point<T, U> {
+    pub coord: Coord<T>,
+    pub value: U
+}
+
+impl<T, U> Point<T, U> {
+    pub fn new(x: T, y: T, value: U) -> Self {
+        Point { coord: Coord::new(x, y), value }
+    }
+
+    pub fn from_coord(coord: Coord<T>, value: U) -> Self {
+        Point { coord, value }
+    }
+}
+
+pub struct Grid<V> {
+    pub map: Vec<Point<usize, V>>,
+    pub height: usize,
+    pub width: usize
+}
+
+impl<V> Grid<V>
+{
+    pub fn new(map: Vec<Vec<Point<usize, V>>>) -> Self {
+        let height = map.len();
+        let width = map.get(0).unwrap_or(&vec![]).len();
+
+        Grid {
+            map: map.into_iter().flatten().collect(),
+            height, width
+        }
+    }
+
+    pub fn get_point(&self, coord: &Coord<usize>) -> &Point<usize, V> {
+        &self.map[coord.y * self.width + coord.x]
+    }
+
+    pub fn get_neighbours(&self, coord: &Coord<usize>) -> Vec<&Point<usize, V>> {
+        let mut neighbours = vec![];
+        if coord.x > 0 {
+            neighbours.push(self.get_point(
+                &Coord::new(coord.x - 1, coord.y)
+            ));
+        }
+
+        if coord.x < self.width - 1 {
+            neighbours.push(self.get_point(
+                &Coord::new(coord.x + 1, coord.y)
+            ));
+        }
+
+        if coord.y > 0 {
+            neighbours.push(self.get_point(
+                &Coord::new(coord.x, coord.y - 1)
+            ));
+        }
+
+        if coord.y < self.height - 1 {
+            neighbours.push(self.get_point(
+                &Coord::new(coord.x, coord.y + 1)
+            ));
+        }
+        neighbours
     }
 }
