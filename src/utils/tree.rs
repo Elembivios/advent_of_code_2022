@@ -1,5 +1,6 @@
 use core::fmt::Debug;
-use std::fmt::{self, Display};
+use std::collections::VecDeque;
+use std::fmt::{self};
 use std::ops::Deref;
 use std::sync::{Arc, RwLock, Weak};
 
@@ -11,7 +12,7 @@ type Children<T> = RwLock<Vec<Child<T>>>;
 
 pub struct NodeData<T>
 where 
-    T: Display,
+    T: Debug,
 {
     pub value: RwLock<T>,
     pub parent: Parent<T>,
@@ -20,12 +21,12 @@ where
 
 impl<T> Debug for NodeData<T>
 where
-    T: Debug + Display,
+    T: Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut parent_msg = String::new();
         if let Some(parent) = self.parent.read().unwrap().upgrade() {
-            parent_msg.push_str(format!("📦 {}", parent.value.read().unwrap()).as_str());            
+            parent_msg.push_str(format!("📦 {:?}", parent.value.read().unwrap()).as_str());            
         } else {
             parent_msg.push_str("🚫 None");
         }
@@ -37,14 +38,14 @@ where
     }
 }
 
-#[derive(Debug)]
-pub struct Node<T: Display> {
+#[derive(Debug, Clone)]
+pub struct Node<T: Debug> {
     pub arc_ref: NodeDataRef<T>,
 }
 
 impl<T> Deref for Node<T>
 where 
-    T: Display
+    T: Debug
 {
     type Target = NodeData<T>;
 
@@ -55,7 +56,7 @@ where
 
 impl<T> Node<T>
 where
-    T: Display + Debug,
+    T: Debug,
 {
     pub fn new(value: T) -> Node<T> {
         let new_node = NodeData {
@@ -99,33 +100,43 @@ where
         }
     }    
 
-    pub fn inorder_iter(&self) -> InOrderIterator<T> {
+    pub fn inorder_iter(&self) -> InOrderTraversal<T> {
         let node = Node { arc_ref: self.get_copy_of_internal_arc() };
-        InOrderIterator::new(node)
+        InOrderTraversal::new(node)
+    }
+
+    pub fn inrevorder_iter(&self) -> InRevOrderTraversal<T> {
+        let node = Node { arc_ref: self.get_copy_of_internal_arc() };
+        InRevOrderTraversal::new(node)
+    }
+
+    pub fn inlevel_iter(&self) -> InLevelTraversal<T> {
+        let node = Node { arc_ref: self.get_copy_of_internal_arc() };
+        InLevelTraversal::new(node)
     }
 }
 
 
-pub struct InOrderIterator<T>
+pub struct InRevOrderTraversal<T>
 where
-    T: Display
+    T: Debug
 {
     current: Node<T>,
     queue: Vec<usize> // Number of children we have checked for each node down the tree
 }
 
-impl<T> InOrderIterator<T>
+impl<T> InRevOrderTraversal<T>
 where
-    T: Display
+    T: Debug
 {
     fn new(node: Node<T>) -> Self {
-        InOrderIterator { current: node, queue: vec![0] }
+        InRevOrderTraversal { current: node, queue: vec![0] }
     }
 }
 
-impl<T> Iterator for InOrderIterator<T>
+impl<T> Iterator for InRevOrderTraversal<T>
 where
-    T: Debug + Display
+    T: Debug
 {
     type Item = NodeDataRef<T>;
     
@@ -151,6 +162,132 @@ where
         }
     }
 }
+
+
+pub struct InOrderTraversal<T>
+where
+    T: Debug
+{
+    current: Option<Node<T>>,
+    queue: VecDeque<Node<T>>,
+    children_count: VecDeque<usize>,
+}
+
+impl<T> InOrderTraversal<T>
+where
+    T: Debug
+{
+    fn new(node: Node<T>) -> Self {
+        InOrderTraversal { 
+            current: Some(node), 
+            queue: VecDeque::new(),
+            children_count: VecDeque::new(),
+        }
+    }
+}
+
+impl<T> Iterator for InOrderTraversal<T>
+where
+    T: Debug
+{
+    type Item = (usize, NodeDataRef<T>);
+    
+    fn next(&mut self) -> Option<Self::Item> {
+        match (self.current.take(), &mut self.queue) {
+            (None, q) if q.is_empty() => None,
+            (None, q) => {
+                self.current = q.pop_back();                
+                self.next()
+            },
+            (Some(node), q) => {
+                let children = node.children.read().unwrap();            
+                'children: loop {
+                    if let Some(current_children_count) = self.children_count.pop_back() {
+                        if current_children_count != 0 {                          
+                            self.children_count.push_back(current_children_count - 1);
+                            break 'children;
+                        } else {
+                            // Continue clearing 0's from children count
+                            continue 'children;
+                        }
+                    } else {
+                        break 'children;
+                    }
+                }
+
+                let current_level = self.children_count.len();
+                self.children_count.push_back(children.len());                                    
+                   
+                for child in children.iter().rev() {
+                    q.push_back( Node { arc_ref: Arc::clone(child) });                    
+                }
+                Some((current_level, node.get_copy_of_internal_arc()))
+            }
+        }
+    }
+}
+
+
+pub struct InLevelTraversal<T> 
+where
+    T: Debug
+{
+    current: Option<Node<T>>,
+    current_level: usize,
+    current_level_count: usize,
+    next_level_count: usize,
+    queue: VecDeque<Node<T>>
+}
+
+
+impl<T> InLevelTraversal<T>
+where
+    T: Debug 
+{
+    fn new(node: Node<T>) -> Self {  
+        InLevelTraversal { 
+            current: Some(node),             
+            current_level: 0, 
+            current_level_count: 1,
+            next_level_count: 0,
+            queue: VecDeque::new()
+        }
+    }
+}
+
+impl <T> Iterator for InLevelTraversal<T>
+where
+    T: Debug
+{
+    type Item = (usize, NodeDataRef<T>);
+
+    fn next(&mut self) -> Option<Self::Item> {        
+        match (self.current.take(), &mut self.queue) {            
+            (None, q) if q.is_empty() => { None },
+            (None, q) => {                
+                self.current = q.pop_front();
+                self.next()
+            },
+            (Some(node), q) => {
+                if self.current_level_count == 0 {
+                    self.current_level += 1;
+                    self.current_level_count = self.next_level_count;
+                    self.next_level_count = 0;
+                }
+                self.current_level_count -= 1;
+
+                let children = node.children.read().unwrap();                                                                         
+                for child in children.iter() {
+                    q.push_back( Node { arc_ref: Arc::clone(child) });
+                }                
+                self.next_level_count += children.len();
+
+                Some((self.current_level, node.get_copy_of_internal_arc()))
+            }
+        }
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -218,7 +355,7 @@ mod tests {
     }
 
     #[test]
-    fn test_inorder_iter() {
+    fn test_inrevorder_iter() {
         let root_node = Node::new(1);
         root_node.create_and_add_child(10);
         root_node.create_and_add_child(20);
@@ -233,12 +370,12 @@ mod tests {
         //            / | \
         //         100 200 300
 
-        let res: Vec<_> = root_node.inorder_iter().map(|child| *child.value.read().unwrap() ).collect();
+        let res: Vec<_> = root_node.inrevorder_iter().map(|child| *child.value.read().unwrap() ).collect();
         assert_eq!(res, vec![10, 20, 100, 200, 300, 30, 1]);
     }
 
     #[test]
-    fn test_inorder_iter_02() {
+    fn test_inrevorder_iter_02() {
         let root_node = Node::new(1);
 
         let child_01 = Node { arc_ref: root_node.create_and_add_child(10) };
@@ -260,8 +397,74 @@ mod tests {
         //   |      /  |  \
         //  1k    2k  3k   4k
 
-        let res: Vec<_> = root_node.inorder_iter().map(|child| *child.value.read().unwrap() ).collect();
+        let res: Vec<_> = root_node.inrevorder_iter().map(|child| *child.value.read().unwrap() ).collect();
         assert_eq!(res, vec![1000, 100, 10, 20, 2000, 3000, 4000, 200, 30, 1]);
     }
 
+    #[test]
+    fn test_inorder_iter() {
+        let root_node = Node::new(1);
+
+        let child_01 = Node { arc_ref: root_node.create_and_add_child(10) };
+        let sub_child_01 = Node { arc_ref: child_01.create_and_add_child(100)};
+        sub_child_01.create_and_add_child(1000);
+        
+        root_node.create_and_add_child(20);
+        let child = Node { arc_ref: root_node.create_and_add_child(30)};
+        let sub_child = Node {arc_ref: child.create_and_add_child(200)};
+        sub_child.create_and_add_child(2000);
+        sub_child.create_and_add_child(3000);
+        sub_child.create_and_add_child(4000);
+
+        //         1
+        //      /  |   \
+        //    10  20   30
+        //    /        |
+        //  100       200  
+        //   |      /  |  \
+        //  1k    2k  3k   4k
+
+        let res: Vec<_> = root_node.inorder_iter().map(|(level, child)| (level, *child.value.read().unwrap()) ).collect();
+        assert_eq!(res, vec![
+            (0, 1), 
+            (1, 10), 
+            (2, 100), 
+            (3, 1000),
+            (1, 20), (1, 30),
+            (2, 200), 
+            (3, 2000), (3, 3000), (3, 4000)
+        ]);
+    }
+
+    #[test]
+    fn test_inlevel_iter() {
+        let root_node = Node::new(1);
+
+        let child = Node { arc_ref: root_node.create_and_add_child(10) };
+        let sub_child = Node { arc_ref: child.create_and_add_child(100)};
+        sub_child.create_and_add_child(1000);
+        
+        root_node.create_and_add_child(20);
+        let child = Node { arc_ref: root_node.create_and_add_child(30)};
+        let sub_child = Node {arc_ref: child.create_and_add_child(200)};
+        sub_child.create_and_add_child(2000);
+        sub_child.create_and_add_child(3000);
+        sub_child.create_and_add_child(4000);
+
+        //         1
+        //      /  |   \
+        //    10  20   30
+        //    /        |
+        //  100       200  
+        //   |      /  |  \
+        //  1k    2k  3k   4k
+
+        let res: Vec<_> = root_node.inlevel_iter().map(|(level, child)| (level, *child.value.read().unwrap()) ).collect();
+        assert_eq!(res, vec![
+            (0, 1),
+            (1, 10), (1, 20), (1, 30),
+            (2, 100), (2, 200),
+            (3, 1000), (3, 2000), (3, 3000), (3, 4000)
+        ]);        
+    }
 }

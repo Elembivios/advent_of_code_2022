@@ -78,7 +78,7 @@ impl crate::Advent for NoSpaceLeftOnDevice {
 
     fn part_01(&self) -> String {
         let mut sub_100k_sizes_sum: u64 = 0;
-        for node in self.root.inorder_iter() {            
+        for node in self.root.inrevorder_iter() {            
             let sub_dirs_size: u64 = node.children.read().unwrap().iter().map(|n| {
                 n.value.read().unwrap().size.unwrap()
             }).sum();
@@ -100,7 +100,7 @@ impl crate::Advent for NoSpaceLeftOnDevice {
         let size_left = total_available - root_size;
         let size_to_delete = required_size - size_left;
 
-        let mut nodes: Vec<u64> = self.root.inorder_iter().filter_map(|n| {
+        let mut nodes: Vec<u64> = self.root.inrevorder_iter().filter_map(|n| {
             let size = n.value.read().unwrap().size.unwrap();
             if size > size_to_delete {
                 Some(size)
