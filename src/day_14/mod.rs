@@ -2,9 +2,9 @@ use itertools::Itertools;
 
 use crate::utils::point::{Coord, Grid};
 use std::{cmp, fmt, iter};
-
+use std::io;
 // 24376 -- too low
-
+type C = Coord<usize>;
 
 #[derive(Debug, PartialEq, Clone)]
 enum Material {
@@ -39,7 +39,7 @@ pub struct RegolithReservoir {
 
 impl crate::Advent for RegolithReservoir {
     fn new(data: &str) -> Self {
-        let mut rocks: Vec<Vec<Coord<usize>>> = data
+        let mut rocks: Vec<Vec<C>> = data
             .lines()
             .map(|l| {
                 l.split(" -> ").map(|line| {
@@ -101,12 +101,8 @@ impl crate::Advent for RegolithReservoir {
         let start = Coord::new(500 - self.offset_x, 0);
         let mut grid = self.grid.clone();
 
-        let mut sand_counter = 0;
-        while let Some(rest_pos) = search_next_rest_pos(&mut grid, &start) {
-            sand_counter += 1;
-            *grid.get_val_mut(&rest_pos) = Material::Sand;
-        }
-        sand_counter.to_string()
+        let sand_count = pour_sand(&mut grid, start);
+        sand_count.to_string()
     }
 
     fn part_02(&self) -> String {
@@ -114,7 +110,6 @@ impl crate::Advent for RegolithReservoir {
         let desired_width = (self.grid.height + 4) * 3; 
         let to_add = (desired_width - self.grid.width) / 2;
         let width = to_add * 2 + self.grid.width;
-        println!("Desired width: {}, Width: {}", desired_width, width);
         
         let two_rows: Vec<Vec<Material>> = (0..2).map(|y| {
             (0..width).map(|_| {
@@ -141,6 +136,7 @@ impl crate::Advent for RegolithReservoir {
         let mut grid = Grid::new(map);
         
         let mut sand_counter = 0;
+        // let mut path = vec![start];
         while let Some(rest_pos) = search_next_rest_pos(&mut grid, &start) {
             sand_counter += 1;
             *grid.get_val_mut(&rest_pos) = Material::Sand;
@@ -149,9 +145,9 @@ impl crate::Advent for RegolithReservoir {
     }
 }
 
-fn search_next_rest_pos(grid: &mut Grid<Material>, start: &Coord<usize>) -> Option<Coord<usize>> {
+fn search_next_rest_pos(grid: &mut Grid<Material>, start: &C) -> Option<C> {
     let mut current = start.clone();     
-    let mut rest_pos: Option<Coord<usize>> = None;
+    let mut rest_pos: Option<C> = None;
     'search_rest: while rest_pos.is_none() {                                
         let val = grid.get_val(&current);
         if val.is_empty() {
@@ -170,14 +166,103 @@ fn search_next_rest_pos(grid: &mut Grid<Material>, start: &Coord<usize>) -> Opti
         if right_val.is_empty() {
             current.x += 1;
             continue 'search_rest;                                        
-        }    
+        }            
         current.y -= 1;
-
         if current == *start {
             return None;
         }
         rest_pos = Some(current.clone());                
     }
     rest_pos    
-    
+}
+
+fn pour_sand(grid: &mut Grid<Material>, start: C) -> usize {
+    let mut sand_count = 0;
+    let mut current_path: Vec<C> = vec![start];
+    while let Some(start) = current_path.pop() {
+        if let Some((rest_position, mut new_path_taken)) = search_next_rest_position(grid, &start) {        
+            sand_count += 1;
+            *grid.get_val_mut(&rest_position) = Material::Sand;
+
+            println!("Coord: {:?}, Grid: {}", rest_position, grid);
+            print!("{esc}c", esc = 27 as char);
+            let mut answer = String::new();
+            io::stdin().read_line(&mut answer).ok().unwrap();  
+            current_path.append(&mut new_path_taken);
+
+            // Fill path taken with sand until we reach straight line in path
+            'backtrack: while let Some(last) = current_path.pop() {
+                if let Some(previous) = current_path.last() {
+                    if last.x == previous.x {
+                        break 'backtrack;
+                    }
+                    sand_count += 1;
+                    *grid.get_val_mut(&last) = Material::Sand;
+
+                    println!("Coord: {:?}, Grid: {}", last, grid);
+                    print!("{esc}c", esc = 27 as char);
+                    let mut answer = String::new();
+                    io::stdin().read_line(&mut answer).ok().unwrap();  
+                }
+            }
+             
+        } else {
+            // We reached infinity
+            return sand_count;
+        }
+    }
+    sand_count    
+}
+
+fn search_next_rest_position(grid: &Grid<Material>, start: &C) -> Option<(C, Vec<C>)> {
+    let mut path: Vec<C> = vec![];
+    let mut current = *start;
+    'search_for_rest: loop {
+        path.push(current);
+        let next_coord = check_next_step(grid, current);
+        match next_coord {
+            NextCoord::Empty(c) => {
+                current = c;
+                continue 'search_for_rest;
+            },
+            NextCoord::Rock => {
+                break 'search_for_rest;
+            },
+            NextCoord::Infinity => {
+                return None;
+            }
+        }
+    }
+    path.pop();
+    Some((current, path))
+}
+
+
+#[derive(Debug)]
+enum NextCoord {
+    Empty(C),
+    Rock,
+    Infinity
+}
+
+fn check_next_step(grid: &Grid<Material>, current: C) -> NextCoord {
+    let down_coord = Coord::new(current.x, current.y + 1);
+    if down_coord.y == grid.height {
+        return NextCoord::Infinity;
+    }    
+    if grid.get_val(&down_coord).is_empty() {
+        return NextCoord::Empty(down_coord);
+    }
+
+    let left_coord = Coord::new(down_coord.x - 1, down_coord.y);
+    if grid.get_val(&left_coord).is_empty() {
+        return NextCoord::Empty(left_coord);
+    }
+
+    let right_coord = Coord::new(down_coord.x + 1, down_coord.y);
+    if grid.get_val(&right_coord).is_empty() {
+        return NextCoord::Empty(right_coord);
+    }
+
+    NextCoord::Rock
 }
