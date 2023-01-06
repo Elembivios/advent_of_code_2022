@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::io;
 use owo_colors::{OwoColorize};
 
-type P = Point<usize, u32>;
+type P<'a> = Point<usize, &'a u32>;
 type C = Coord<usize>;
 
 
@@ -17,34 +17,27 @@ impl crate::Advent for HillClimbingAlhorithm {
     fn new(data: &str) -> Self {
         let mut start = (0, 0);
         let mut end = (0, 0);
-        let map: Vec<Vec<P>> = data
+        let map: Vec<Vec<u32>> = data
             .lines()
             .enumerate()
             .map(|(y, row)| {
-                row
-                    .chars()
-                    .enumerate()
-                    .map(|(x, c)| {
-                        let val = match c {
-                            'S' => { 
-                                start = (x, y);
-                                0
-                            },
-                            'E' => {
-                                end = (x, y);
-                                25
-                            },
-                            c => {
-                                c.to_digit(36).unwrap() - 10
-                            }
-                        };
-                        Point::new(x, y, val)
-                    })
-                .collect()
-            }).collect();
-
+                row.chars().enumerate().map(|(x, c)| {
+                    match c {
+                        'S' => {
+                            start = (x, y);
+                            0
+                        },
+                        'E' => {
+                            end = (x, y);
+                            25
+                        },
+                        c => {
+                            c.to_digit(36).unwrap() - 10
+                        }
+                    }
+                }).collect()
+            }).collect();                
         let grid: Grid<u32> = Grid::new(map);
-
 
         HillClimbingAlhorithm {
             grid,
@@ -54,22 +47,22 @@ impl crate::Advent for HillClimbingAlhorithm {
     }
 
     fn part_01(&self) -> String {
-        let heuristic = |current: &P, goals: &Vec<&P>| {
+        let heuristic = |current: &C, goals: &Vec<C>| {
             goals.iter().map(|goal| {
-                let x = goal.coord.x.abs_diff(current.coord.x);
-                let y = goal.coord.y.abs_diff(current.coord.y);
+                let x = goal.x.abs_diff(current.x);
+                let y = goal.y.abs_diff(current.y);
                 let future_path = x + y;
                 future_path
             }).min().unwrap()            
         };
         let valid_neighbour = |current: &P, neighbour: &P| {
-            (neighbour.value as i32 - current.value as i32) <= 1
+            (*neighbour.value as i32 - *current.value as i32) <= 1
         };
 
         let path = a_star(
             &self.grid, 
-            self.grid.get_point(&self.start), 
-            vec![self.grid.get_point(&self.end)], 
+            self.start, 
+            vec![self.end], 
             heuristic, 
             valid_neighbour
         );
@@ -80,22 +73,22 @@ impl crate::Advent for HillClimbingAlhorithm {
     }
 
     fn part_02(&self) -> String {
-        let heuristic = |current: &P, goals: &Vec<&P>| {
+        let heuristic = |current: &C, goals: &Vec<C>| {
             goals.iter().map(|goal| {
-                let x = goal.coord.x.abs_diff(current.coord.x);
-                let y = goal.coord.y.abs_diff(current.coord.y);
+                let x = goal.x.abs_diff(current.x);
+                let y = goal.y.abs_diff(current.y);
                 let future_path = x + y;
                 future_path
             }).min().unwrap()            
         };
         let valid_neighbour = |current: &P, neighbour: &P| {
-            (neighbour.value as i32 - current.value as i32) >= -1
+            (*neighbour.value as i32 - *current.value as i32) >= -1
         };
 
-        let goals: Vec<_> = self.grid.map.iter().filter(|p| p.value == 0).collect();
+        let goals: Vec<_> = self.grid.iter_points().filter(|p| *p.value == 0).map(|p| p.coord).collect();
         let path = a_star(
             &self.grid, 
-            self.grid.get_point(&self.end), 
+            self.end, 
             goals, 
             heuristic,
             valid_neighbour
@@ -107,58 +100,57 @@ impl crate::Advent for HillClimbingAlhorithm {
 }
 
 
-fn reconstruct_path<'a>(came_from: &HashMap<&'a P, &'a P>, current: &'a P) -> Vec<&'a P> {
-    let mut total_path: Vec<&P> = vec![current];
-    let mut previous_point = came_from.get(current);
-    while previous_point.is_some() {
-        if let Some(p) = previous_point {
-            total_path.insert(0, p.clone());
-            previous_point = came_from.get(p);
+fn reconstruct_path(came_from: HashMap<C, C>, current: C) -> Vec<C> {
+    let mut total_path: Vec<C> = vec![current.clone()];
+    let mut previous_coord = came_from.get(&current);
+    while previous_coord.is_some() {
+        if let Some(c) = previous_coord {
+            total_path.insert(0, c.clone());
+            previous_coord = came_from.get(c);
         }
     }
     total_path
 }
 
-fn d(_current: &P, _neighbour: &P) -> usize {
+fn d(_current: &C, _neighbour: &C) -> usize {
     1
 }
 
-fn a_star<'a>(grid: &'a Grid<u32>, start: &'a P, goals: Vec<&'a P>, heuristic: fn(&P, &Vec<&P>) -> usize, valid_neighbour: fn(&P, &P) -> bool) -> Option<Vec<&'a P>> {
+fn a_star<'a>(grid: &'a Grid<u32>, start: C, goals: Vec<C>, heuristic: fn(&C, &Vec<C>) -> usize, valid_neighbour: fn(&P, &P) -> bool) -> Option<Vec<C>> {
     let mut open_set = vec![start];
-    let mut came_from: HashMap<&'a P, &'a P> = HashMap::new();
-    let mut g_score: HashMap<&C, usize> = grid.map.iter().map(|p| (&p.coord, usize::MAX)).collect();
-    g_score.insert(&start.coord, 0);
-
-    let mut f_score: HashMap<&C, usize> = grid.map.iter().map(|p| (&p.coord, usize::MAX)).collect();
-    f_score.insert(&start.coord, heuristic(&start, &goals));
+    let mut came_from: HashMap<C, C> = HashMap::new();
+    let mut g_score: HashMap<C, usize> = grid.iter_coords().map(|c| (c, usize::MAX)).collect();
+    g_score.insert(start, 0);
+    let mut f_score: HashMap<C, usize> = grid.iter_coords().map(|c| (c, usize::MAX)).collect();
+    f_score.insert(start, heuristic(&start, &goals));
 
     while open_set.len() != 0 {
-        let min_f = open_set.iter().map(|p| {
-            (p, f_score.get(&p.coord).unwrap())
+        let min_f = open_set.iter().map(|c| {
+            (c, f_score.get(c).unwrap())
         }).min_by(|a, b| {
             a.1.cmp(b.1)
         }).unwrap();
         let current = *min_f.0;
 
-        if goals.iter().any(|g| g.coord == current.coord) {
-            return Some(reconstruct_path(&came_from, current));            
+        if goals.iter().any(|g| *g == current) {
+            return Some(reconstruct_path(came_from, current));            
         }
 
         let pos = open_set.iter().position(|p| *p == current).unwrap();
         open_set.remove(pos);
 
-        for neighbour in grid.get_neighbours(&current.coord) {
-            if !valid_neighbour(current, neighbour) {
+        for neighbour in grid.neighbour_coords(&current) {
+            if !valid_neighbour(&grid.get_point(&current), &grid.get_point(&neighbour)) {
                 continue;
             }
-            let tentative_g_score = g_score[&current.coord] + d(current, neighbour);
+            let tentative_g_score = g_score[&current] + d(&current, &neighbour);
 
-            if tentative_g_score < g_score[&neighbour.coord] {
+            if tentative_g_score < g_score[&neighbour] {
                 came_from.insert(neighbour, current);
-                let tentative_f_score = tentative_g_score + heuristic(neighbour, &goals);
-                g_score.insert(&neighbour.coord, tentative_g_score);
-                f_score.insert(&neighbour.coord, tentative_f_score);
-                if !open_set.contains(&neighbour) {
+                let tentative_f_score = tentative_g_score + heuristic(&neighbour, &goals);
+                g_score.insert(neighbour, tentative_g_score);
+                f_score.insert(neighbour, tentative_f_score);
+                if !open_set.contains(&&neighbour) {
                     open_set.push(neighbour);
                 }
             }
@@ -169,7 +161,7 @@ fn a_star<'a>(grid: &'a Grid<u32>, start: &'a P, goals: Vec<&'a P>, heuristic: f
 }
 
 #[allow(dead_code)]
-fn display_and_wait(grid: &Grid<u32>, open_set: &Vec<&P>, current: &P, path: &Vec<&P>) {    
+fn display_and_wait(grid: &Grid<u32>, open_set: &Vec<&C>, current: &C, path: &Vec<&C>) {    
     display(grid, open_set, current, path);
     let mut answer = String::new();
     io::stdin().read_line(&mut answer).ok().unwrap(); 
@@ -177,16 +169,17 @@ fn display_and_wait(grid: &Grid<u32>, open_set: &Vec<&P>, current: &P, path: &Ve
 }
 
 #[allow(dead_code)]
-fn display(grid: &Grid<u32>, open_set: &Vec<&P>, current: &P, path: &Vec<&P>) {    
-    for chunk in grid.map.chunks(grid.width) {        
-        for p in chunk {
-            let chr = char::from_digit(p.value, 36).unwrap();
-            if p.coord == current.coord {
+fn display(grid: &Grid<u32>, open_set: &Vec<&C>, current: &C, path: &Vec<&C>) {    
+    for (y, chunk) in grid.map.chunks(grid.width).enumerate() {                
+        for (x, v) in chunk.iter().enumerate() {
+            let chr = char::from_digit(*v, 36).unwrap();
+            let coord = Coord::new(x, y);
+            if coord == *current {
                 print!("{}", chr.red());
             }
-            else if path.iter().map(|pp| &pp.coord).any(|c| *c == p.coord ) {
+            else if path.iter().any(|c| **c == coord ) {
                 print!("{}", chr.green());
-            } else if open_set.iter().map(|osp| &osp.coord).any(|osp| *osp == p.coord) {
+            } else if open_set.iter().any(|osp| *osp == current) {
                 print!("{}", chr.bright_white());
             } else {
                 print!("{}", chr);
