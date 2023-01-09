@@ -132,116 +132,70 @@ impl crate::Advent for RegolithReservoir {
             .collect();
 
         let start = Coord::new(500 - self.offset_x + to_add, 0);
-        
         let mut grid = Grid::new(map);
-        
-        let mut sand_counter = 0;
-        // let mut path = vec![start];
-        while let Some(rest_pos) = search_next_rest_pos(&mut grid, &start) {
-            sand_counter += 1;
-            *grid.get_val_mut(&rest_pos) = Material::Sand;
-        }
-        (sand_counter + 1).to_string()
+        let sand_count = pour_sand(&mut grid, start);
+        sand_count.to_string()
     }
 }
 
-fn search_next_rest_pos(grid: &mut Grid<Material>, start: &C) -> Option<C> {
-    let mut current = start.clone();     
-    let mut rest_pos: Option<C> = None;
-    'search_rest: while rest_pos.is_none() {                                
-        let val = grid.get_val(&current);
-        if val.is_empty() {
-            if current.y == grid.height - 1 {
-                return rest_pos;
-            }
-            current.y += 1;                    
-            continue 'search_rest;
-        }
-        let left_val = grid.get_val(&Coord::new(current.x - 1, current.y));
-        if left_val.is_empty() {                          
-            current.x -= 1;
-            continue 'search_rest;
-        }
-        let right_val = grid.get_val(&Coord::new(current.x + 1, current.y));
-        if right_val.is_empty() {
-            current.x += 1;
-            continue 'search_rest;                                        
-        }            
-        current.y -= 1;
-        if current == *start {
-            return None;
-        }
-        rest_pos = Some(current.clone());                
-    }
-    rest_pos    
+#[allow(dead_code)]
+fn print_grid(grid: &Grid<Material>, path: Vec<C>) {        
+    grid.display_with_points(path.clone(), '~');
+    let mut answer = String::new();
+    io::stdin().read_line(&mut answer).ok().unwrap(); 
+    print!("{esc}c", esc = 27 as char);
 }
+
 
 fn pour_sand(grid: &mut Grid<Material>, start: C) -> usize {
     let mut sand_count = 0;
-    let mut current_path: Vec<C> = vec![start];
-    while let Some(start) = current_path.pop() {
-        if let Some((rest_position, mut new_path_taken)) = search_next_rest_position(grid, &start) {        
-            sand_count += 1;
-            *grid.get_val_mut(&rest_position) = Material::Sand;
-
-            println!("Coord: {:?}, Grid: {}", rest_position, grid);
-            print!("{esc}c", esc = 27 as char);
-            let mut answer = String::new();
-            io::stdin().read_line(&mut answer).ok().unwrap();  
-            current_path.append(&mut new_path_taken);
-
-            // Fill path taken with sand until we reach straight line in path
-            'backtrack: while let Some(last) = current_path.pop() {
-                if let Some(previous) = current_path.last() {
-                    if last.x == previous.x {
-                        break 'backtrack;
-                    }
-                    sand_count += 1;
-                    *grid.get_val_mut(&last) = Material::Sand;
-
-                    println!("Coord: {:?}, Grid: {}", last, grid);
-                    print!("{esc}c", esc = 27 as char);
-                    let mut answer = String::new();
-                    io::stdin().read_line(&mut answer).ok().unwrap();  
-                }
-            }
-             
+    let mut current_path = vec![start];
+    'pour: loop {
+        if let Some(current) = current_path.last() {
+            // print_grid(grid, current_path.clone());
+            if let Some((rest_position, mut new_path_taken)) = search_next_rest_position(grid, &current) {
+                current_path.append(&mut new_path_taken);
+                sand_count += 1;
+                *grid.get_val_mut(&rest_position) = Material::Sand;                 
+                current_path.pop();                
+            } else {                
+                // println!("Reached infinity...");
+                break 'pour;
+            }            
         } else {
-            // We reached infinity
-            return sand_count;
+            // println!("Reached start coordinate...");
+            break 'pour;
         }
     }
-    sand_count    
+    sand_count
 }
 
 fn search_next_rest_position(grid: &Grid<Material>, start: &C) -> Option<(C, Vec<C>)> {
     let mut path: Vec<C> = vec![];
     let mut current = *start;
     'search_for_rest: loop {
-        path.push(current);
         let next_coord = check_next_step(grid, current);
         match next_coord {
             NextCoord::Empty(c) => {
+                path.push(c);
                 current = c;
                 continue 'search_for_rest;
             },
-            NextCoord::Rock => {
-                break 'search_for_rest;
+            NextCoord::Full => {
+                return Some((current, path));
             },
             NextCoord::Infinity => {
                 return None;
             }
         }
     }
-    path.pop();
-    Some((current, path))
 }
 
 
 #[derive(Debug)]
 enum NextCoord {
     Empty(C),
-    Rock,
+    Full,
     Infinity
 }
 
@@ -263,6 +217,5 @@ fn check_next_step(grid: &Grid<Material>, current: C) -> NextCoord {
     if grid.get_val(&right_coord).is_empty() {
         return NextCoord::Empty(right_coord);
     }
-
-    NextCoord::Rock
+    NextCoord::Full
 }
