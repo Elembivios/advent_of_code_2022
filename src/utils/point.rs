@@ -1,6 +1,7 @@
 use std::fmt::{self, Display};
 use std::cmp::Ordering;
 use std::ops::{Add, Sub, AddAssign, SubAssign};
+use funty::Integral;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Coord<T> {
@@ -25,6 +26,26 @@ impl<T> Coord<T> {
             Axis::X => &mut self.x,
             Axis::Y => &mut self.y
         }
+    }    
+}
+
+impl<T> Coord<T> 
+where
+    T: Integral
+{
+    pub fn manhattan_distance(&self, other: &Self) -> T {
+        // (self.x - other.x).abs() + (self.y - other.y).abs()
+        let x = if self.x < other.x {
+            other.x - self.x
+        } else {
+            self.x - other.x
+        };
+        let y = if self.y < other.y {
+            other.y - self.y
+        } else {
+            self.y - other.y
+        };
+        x + y
     }
 }
 
