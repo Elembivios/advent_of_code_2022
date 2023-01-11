@@ -14,6 +14,7 @@ mod day_12;
 mod day_13;
 mod day_14;
 mod day_15;
+mod day_16;
 
 use std::{error::Error, fs};
 use structopt::StructOpt;
@@ -99,7 +100,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let days = if let Some(day) = args.day {
         day..=day
     } else {
-        1u32..=15u32
+        1u32..=16u32
     };
     let mut duration = Duration::new(0, 0);
 
@@ -126,6 +127,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             13 => Solution::new::<day_13::DistressSignal>(content),
             14 => Solution::new::<day_14::RegolithReservoir>(content),
             15 => Solution::new::<day_15::BeaconExclusionZone>(content),
+            16 => Solution::new::<day_16::ProboscideaVolcanium>(content),
             _ => unreachable!(),
         };
 
