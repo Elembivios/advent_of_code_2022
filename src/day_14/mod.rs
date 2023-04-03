@@ -1,9 +1,8 @@
 use itertools::Itertools;
 
 use crate::utils::point::{Coord, Grid};
+use crate::utils::wait_user_input;
 use std::{cmp, fmt, iter};
-use std::io;
-// 24376 -- too low
 type C = Coord<usize>;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -141,8 +140,7 @@ impl crate::Advent for RegolithReservoir {
 #[allow(dead_code)]
 fn print_grid(grid: &Grid<Material>, path: Vec<C>) {        
     grid.display_with_points(path.clone(), '~');
-    let mut answer = String::new();
-    io::stdin().read_line(&mut answer).ok().unwrap(); 
+    wait_user_input();
     print!("{esc}c", esc = 27 as char);
 }
 

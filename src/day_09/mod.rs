@@ -1,6 +1,5 @@
 use std::{str::FromStr, fmt};
-use crate::utils::point::*;
-use std::io;
+use crate::utils::{point::*, wait_user_input};
 
 pub struct RopeBridge {
     commands: Vec<(Direction, usize)>
@@ -116,8 +115,7 @@ impl Rope {
     fn print_and_wait(&self) {
         print!("{esc}c", esc = 27 as char);
         println!("{:?}", self);    
-        let mut answer = String::new();
-        io::stdin().read_line(&mut answer).ok().unwrap();        
+        wait_user_input();     
     }
 
     fn exec_command(&mut self, dir: &Direction, steps: usize) -> Vec<Coord<isize>> {

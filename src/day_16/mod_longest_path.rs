@@ -99,12 +99,6 @@ impl crate::Advent for ProboscideaVolcanium {
 //     path
 // }
 
-fn wait_user_input() {
-    let mut s = String::new();
-    let stdin = io::stdin();
-    stdin.read_line(&mut s).unwrap();
-}
-
 fn sort_pair(lhs: &String, rhs: &String) -> (String, String) {
     match lhs.cmp(&rhs) {
         Ordering::Greater => (rhs.clone(), lhs.clone()),

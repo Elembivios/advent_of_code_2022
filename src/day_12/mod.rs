@@ -1,7 +1,6 @@
-use crate::utils::point::{Coord, Point, Grid};
+use crate::utils::{point::{Coord, Point, Grid}, wait_user_input};
 use std::collections::HashMap;
-use std::io;
-use owo_colors::{OwoColorize};
+use owo_colors::OwoColorize;
 
 type P<'a> = Point<usize, &'a u32>;
 type C = Coord<usize>;
@@ -163,8 +162,7 @@ fn a_star<'a>(grid: &'a Grid<u32>, start: C, goals: Vec<C>, heuristic: fn(&C, &V
 #[allow(dead_code)]
 fn display_and_wait(grid: &Grid<u32>, open_set: &Vec<&C>, current: &C, path: &Vec<&C>) {    
     display(grid, open_set, current, path);
-    let mut answer = String::new();
-    io::stdin().read_line(&mut answer).ok().unwrap(); 
+    wait_user_input();
     print!("{esc}c", esc = 27 as char);
 }
 
