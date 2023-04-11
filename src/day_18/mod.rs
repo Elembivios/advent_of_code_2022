@@ -1,6 +1,6 @@
 // 3284 -- too high
 
-use std::{collections::VecDeque, ops::RangeBounds};
+use std::{collections::{VecDeque, HashSet}, ops::RangeBounds};
 
 type Coord = [i8; 3];
 
@@ -19,7 +19,7 @@ fn get_neighbour_coords(c: &Coord) -> Vec<Coord> {
 }
 
 pub struct BoilingBoulders {
-    droplets: Vec<Coord>,
+    droplets: HashSet<Coord>,
     max_coord: Coord
 }
 
@@ -28,7 +28,7 @@ impl crate::Advent for BoilingBoulders {
         where 
             Self: Sized {                
         
-        let droplets: Vec<Coord> = data.lines().map(|l| {
+        let droplets: HashSet<Coord> = data.lines().map(|l| {
             let v: Vec<i8> = l.split(',').map(|n| n.parse().unwrap()).collect();
             v.try_into().unwrap()
         }).collect();
@@ -42,54 +42,53 @@ impl crate::Advent for BoilingBoulders {
     }
 
     fn part_01(&self) -> String {
-        let touching_sides_count = self.touching_sides_count(&self.droplets);
-        let surface_area = self.droplets.len() * 6 - touching_sides_count;
+        let surface_area = self.surface_area(&self.droplets);
         surface_area.to_string()
     }
 
     fn part_02(&self) -> String {
-        let touching_sides_count = self.touching_sides_count(&self.droplets);
-        let surface_area = self.droplets.len() * 6 - touching_sides_count;
-
+        let initial_surface_area = self.surface_area(&self.droplets);
         let air_pockets = self.get_air_pockets();
 
-        let mut air_pockets_surface = 0;
+        let mut air_pockets_surface_area = 0;
         for air_pocket in air_pockets {
-            let ap_touching_sides_count = self.touching_sides_count(&air_pocket);
-            let ap_surface = air_pocket.len() * 6 - ap_touching_sides_count;
-            air_pockets_surface += ap_surface;
+            let air_pocket_surface_area = self.surface_area(&air_pocket);
+            air_pockets_surface_area += air_pocket_surface_area;
         }
 
-        let result = surface_area - air_pockets_surface;
-        result.to_string()
+        let surface_area = initial_surface_area - air_pockets_surface_area;
+        surface_area.to_string()
     }
 }
 
 impl BoilingBoulders {
-    fn touching_sides_count(&self, spaces: &Vec<Coord>) -> usize {
-        spaces.iter().map(|c| {
-            let neighbour_coords = get_neighbour_coords(c);
-            spaces.iter().filter(|&oc| {
-                oc != c && neighbour_coords.contains(oc)
-            }).count()
-        }).sum()
-    }   
+    fn surface_area(&self, spaces: &HashSet<Coord>) -> usize {
+        let mut surface_area = 0;
+        for coord in spaces.iter() {
+            for neighbour_coord in get_neighbour_coords(coord) {
+                if !spaces.contains(&neighbour_coord) {
+                    surface_area += 1;
+                }
+            }
+        }
+        surface_area
+    }
 
     fn empty_neighbours_it<'a> (&'a self, c: &'a Coord) -> impl Iterator<Item = Coord> + 'a {
         get_neighbour_coords(c).into_iter().filter_map(|nc| {
-            match self.droplets.iter().position(|&d| d == nc) {
-                Some(_pos) => None,
-                None => Some(nc)
+            if self.droplets.contains(&nc) {
+                return None;
             }
+            Some(nc)
         })
     } 
 
-    fn search_out_of_bounds<R: RangeBounds<i8>>(&self, start: &Coord, bounds: &[R; 3]) -> (bool, Vec<Coord>) {
+    fn search_out_of_bounds<R: RangeBounds<i8>>(&self, start: &Coord, bounds: &[R; 3]) -> (bool, HashSet<Coord>) {
         let mut queue: VecDeque<Coord> = VecDeque::new();
-        let mut visited: Vec<Coord> = vec![];
+        let mut visited: HashSet<Coord> = HashSet::new();
 
         queue.push_back(start.clone());
-        visited.push(start.clone());
+        visited.insert(start.clone());
 
         while let Some(c) = queue.pop_front() {            
             for empty_neighbour in self.empty_neighbours_it(&c) {
@@ -97,7 +96,7 @@ impl BoilingBoulders {
                     continue;
                 }
 
-                visited.push(empty_neighbour.clone());
+                visited.insert(empty_neighbour.clone());
                 for (axis, val) in empty_neighbour.iter().enumerate() {
                     if !bounds[axis].contains(val) {
                         // Is out of bounds / can't be an air bubble
@@ -113,19 +112,19 @@ impl BoilingBoulders {
         (false, visited)
     }
 
-    fn get_air_pockets(&self) -> Vec<Vec<Coord>>{
-        let mut air_pockets: Vec<Vec<Coord>> = vec![];        
+    fn get_air_pockets(&self) -> Vec<HashSet<Coord>>{
+        let mut air_pockets: Vec<HashSet<Coord>> = vec![];        
         let mut visited: Vec<Coord> = vec![];      
 
         let bounds = [
-            0..=self.max_coord[0],
-            0..=self.max_coord[1],
-            0..=self.max_coord[2]
+            1..self.max_coord[0],
+            1..self.max_coord[1],
+            1..self.max_coord[2]
         ];
 
-        for x in 1..self.max_coord[0] {
-            for y in 1..self.max_coord[1] {
-                for z in 1..self.max_coord[2] {
+        for x in bounds[0].clone() {
+            for y in bounds[1].clone() {
+                for z in bounds[2].clone() {
                     let c = [x, y, z];
 
                     // Is air and has not yet been visited
