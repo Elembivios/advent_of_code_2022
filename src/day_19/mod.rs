@@ -142,6 +142,7 @@ impl Factory {
         }).collect();     
 
         if can_buy_robots.len() == 0 {
+            println!("No robots to buy..");
             return None;
         }
 
@@ -315,16 +316,21 @@ impl Factory {
     fn time_and_sequence_till_buy(&self, mineral: &Mineral) -> (usize, usize) {        
         let prices = &self.blueprint[mineral];
         let (_, time_and_sequence) = prices.iter().map(|(m, p)| {
-            let remaining_price: isize = *p as isize - self.minerals[m] as isize;
+            let remaining_price = if *p > self.minerals[m] {
+                *p as isize - self.minerals[m] as isize
+            } else {
+                0
+            };
             let minutes_to_buy = if self.robots[m] == 0 {
                 let i = MINERALS.iter().position(|m| m == mineral).unwrap();
                 let prev = self.time_and_sequence_till_buy(&MINERALS[i - 1]);
                 (prev.0 + remaining_price as usize, prev.1 + p)
             } else {
                 (
-                    ((remaining_price + self.robots[m] as isize - 1) / self.robots[m] as isize) as usize,
+                    // Div ceil         
+                    ((remaining_price + self.robots[m] as isize - 1) / self.robots[m] as isize) as usize,                    
                     ((*p as isize + self.robots[m] as isize - 1) / self.robots[m] as isize) as usize,
-                ) // Div ceil            
+                )    
             };
             // let minutes_to_buy = (remaining_price + self.robots[m] as isize - 1) / self.robots[m] as isize; // Div ceil            
             (m, minutes_to_buy)
