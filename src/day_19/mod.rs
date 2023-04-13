@@ -1,5 +1,6 @@
 use std::str::FromStr;
 use anyhow::{Result, Error, anyhow};
+use owo_colors::OwoColorize;
 use std::collections::HashMap;
 
 pub struct NotEnoughMinerals {
@@ -146,15 +147,15 @@ impl Factory {
 
         println!("Can buy robots: {:?}", can_buy_robots);
 
-        let best_robot_we_could_buy = self.get_best_robot_we_could_buy_with_current_income();
+        // let best_robot_we_could_buy = self.get_best_robot_we_could_buy_with_current_income();
         // if can_buy_robots.contains(&best_robot_we_could_buy) {
         //     return Some(best_robot_we_could_buy);
         // }
-        println!("Best we could buy: {:?}", best_robot_we_could_buy);
+        // println!("Best we could buy: {:?}", best_robot_we_could_buy);
         let mut robots_to_buy_score: HashMap<Mineral, usize> = HashMap::new();
 
         // Do we wait to buy it or we buy a lesser one
-        robots_to_buy_score.insert(best_robot_we_could_buy, self.robot_score(best_robot_we_could_buy));
+        robots_to_buy_score.insert(Mineral::Geode, self.num_can_buy(&Mineral::Geode));
 
         for robot in can_buy_robots.iter() {
             let mut factory_clone = self.clone();    
@@ -163,7 +164,7 @@ impl Factory {
             let new_robots = HashMap::from([(*robot, 1usize)]);
             factory_clone.add_robots(new_robots);
             factory_clone.time_remaining -= 1;
-            robots_to_buy_score.insert(*robot, factory_clone.robot_score(best_robot_we_could_buy));
+            robots_to_buy_score.insert(*robot, factory_clone.num_can_buy(&Mineral::Geode));
         }
         println!("Robots to buy score: {:?}", robots_to_buy_score);
 
@@ -300,14 +301,40 @@ impl Factory {
         (time_till_we_can_buy as usize, sequence_we_can_buy)
     }
 
-    fn robot_score(&self, mineral: Mineral) -> usize {
-        let (time, sequence) = self.get_time_and_sequence_till_we_can_buy(&mineral);
-        println!("m: {:?}, t: {}, s: {}, tr: {}", mineral, time, sequence, self.time_remaining);
-        if time > self.time_remaining {
-            return 0;
-        }
-        (self.time_remaining - time) / sequence + 1
-        // let number_of_robots = (self.time_remaining + time / sequence) + 1;
-        // number_of_robots
+    // fn robot_score(&self, mineral: Mineral) -> usize {
+    //     let (time, sequence) = self.get_time_and_sequence_till_we_can_buy(&mineral);
+    //     println!("m: {:?}, t: {}, s: {}, tr: {}", mineral, time, sequence, self.time_remaining);
+    //     if time > self.time_remaining {
+    //         return 0;
+    //     }
+    //     (self.time_remaining - time) / sequence + 1
+    //     // let number_of_robots = (self.time_remaining + time / sequence) + 1;
+    //     // number_of_robots
+    // }
+
+    fn time_and_sequence_till_buy(&self, mineral: &Mineral) -> (usize, usize) {        
+        let prices = &self.blueprint[mineral];
+        let (_, time_and_sequence) = prices.iter().map(|(m, p)| {
+            let remaining_price: isize = *p as isize - self.minerals[m] as isize;
+            let minutes_to_buy = if self.robots[m] == 0 {
+                let i = MINERALS.iter().position(|m| m == mineral).unwrap();
+                let prev = self.time_and_sequence_till_buy(&MINERALS[i - 1]);
+                (prev.0 + remaining_price as usize, prev.1 + p)
+            } else {
+                (
+                    ((remaining_price + self.robots[m] as isize - 1) / self.robots[m] as isize) as usize,
+                    ((*p as isize + self.robots[m] as isize - 1) / self.robots[m] as isize) as usize,
+                ) // Div ceil            
+            };
+            // let minutes_to_buy = (remaining_price + self.robots[m] as isize - 1) / self.robots[m] as isize; // Div ceil            
+            (m, minutes_to_buy)
+        }).max_by(|a, b| a.1.cmp(&b.1)).unwrap();        
+        time_and_sequence
+    }
+
+    fn num_can_buy(&self, mineral: &Mineral) -> usize {
+        let (time, sequence) = self.time_and_sequence_till_buy(mineral);
+        println!("t: {}, s: {}, m: {:?}", time, sequence, mineral);
+        (self.time_remaining + time) / sequence + 1
     }
 }
