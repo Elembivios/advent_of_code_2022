@@ -16,7 +16,6 @@ impl crate::Advent for NotEnoughMinerals {
             let robot_strings = robot_strings.strip_suffix(".").unwrap();
             robot_strings.split(". ").map(|rs| {            
                 let words: Vec<_> = rs.split(" ").collect();
-                println!("Words: {:?}", words);
                 let mines = Mineral::from_str(words[1]).unwrap();
                 let mut robots: RobotPrices = HashMap::new();
                 
@@ -38,9 +37,9 @@ impl crate::Advent for NotEnoughMinerals {
         let blueprint = &self.blueprints[0];
         let mut factory = Factory::new(blueprint.clone());
         factory.strategy();
-        for _minute in (0..=24).rev() {
-            factory.pass_minute();
-        }
+        // for _minute in (0..24).rev() {
+        //     factory.pass_minute();
+        // }
         1.to_string()
     }
 
@@ -149,17 +148,30 @@ impl Factory {
         // Calculate which robots to buy and when
         let time_limit = 24;
         let mut time_remaining = time_limit.clone();
-        let mut geode_price_sum: HashMap<Mineral, usize> = HashMap::from_iter(
+        
+        
+
+
+        // Get the materials needed for constructing one geode robot
+        let mut minerals_needed: HashMap<Mineral, isize> = HashMap::from_iter(
             MINERALS.iter().map(|m| (m.clone(), 0))
         );
-        
         for mineral in MINERALS.iter().rev() {
             for (m, price) in &self.blueprint[mineral] {
-                *geode_price_sum.get_mut(m).unwrap() += price
+                *minerals_needed.get_mut(m).unwrap() += *price as isize - self.minerals[mineral] as isize
             }
         }
+        println!("Minerals needed: {:?}", minerals_needed);
         
-        println!("Geode price sum: {:?}", geode_price_sum);
+        let current_mining_forecast: HashMap<Mineral, usize> = HashMap::from_iter(self.robots.iter().map(|(rt, rc)| {
+            (rt.clone(), rc * time_remaining)
+        }));
+
+        let max_demand = minerals_needed.iter().max_by(|a, b| {
+            a.1.cmp(&b.1)
+        }).unwrap();
+        println!("Max demand: {:?}", max_demand);
+        // let max_duration = max_demand;
 
     }
 }
