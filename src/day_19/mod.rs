@@ -1,7 +1,8 @@
 use std::str::FromStr;
+use std::time;
 use anyhow::{Result, Error, anyhow};
 use std::collections::HashMap;
-use std::cmp::Ord;
+use std::cmp::{Ord, Ordering};
 
 // 400 -- too low
 use crate::utils::wait_user_input;
@@ -136,7 +137,7 @@ impl MineralState {
         let remaining = quantity - self.minerals;
 
         // Ceil division
-        remaining + self.robots - 1 / self.robots
+        (remaining + self.robots - 1) / self.robots
     }
 
     fn sequence_to_buy(&self, quantity: usize) -> usize {
@@ -146,8 +147,33 @@ impl MineralState {
             return 0;
         } else {
             // Ceil division
-            quantity + self.robots - 1 / self.robots
+            (quantity + self.robots - 1) / self.robots
         }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+struct Score {
+    nr_geodes: f32,
+    time_to_buy: usize,
+    sequence_to_buy: usize,
+}
+
+impl PartialOrd for Score {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        let cmp = self.nr_geodes.partial_cmp(&other.nr_geodes);
+        let Some(cmp) = cmp else {
+            return None;
+        };
+        let mut cmp = cmp;
+
+        if cmp.is_eq() {
+            cmp = self.time_to_buy.cmp(&other.time_to_buy).reverse();
+            if cmp.is_eq() {
+                cmp = self.sequence_to_buy.cmp(&other.sequence_to_buy).reverse();
+            }
+        }
+        Some(cmp)
     }
 }
 
@@ -205,6 +231,8 @@ impl Factory {
     }
 
     fn mineral_minutes_to_buy(&self, mineral: &Mineral) -> usize {
+        // In how many minutes we can buy a robot of mineral type taking into account 
+        // the current resources we have.
         let state = self.state(&mineral);
 
         let max_minutes_to_buy = state.prices.iter().map(|(m, p)| {
@@ -216,11 +244,13 @@ impl Factory {
         }).max_by(|a, b| {
             a.1.cmp(&b.1)
         }).unwrap();
-
+        // println!("M {:?} -> {:?}", mineral, max_minutes_to_buy);
         max_minutes_to_buy.1
     }
 
     fn sequence_to_buy(&self, mineral: &Mineral) -> usize {
+        // In how many minutes we can buy a robot of mineral type without taking 
+        // into account the current resources we have.
         let state = self.state(&mineral);
 
         let max_sequence_to_buy = state.prices.iter().map(|(m, p)| {
@@ -235,6 +265,8 @@ impl Factory {
 
         max_sequence_to_buy.1
     }
+
+
     // fn calculated_price(&self, mineral: &Mineral) -> (usize, usize) {
     //     let state = self.state(&mineral);
 
@@ -256,11 +288,11 @@ impl Factory {
     fn b_line_num_geodes_we_can_buy(&self) -> f32 {
         let minutes_to_buy = self.mineral_minutes_to_buy(&Mineral::Geode);
         let sequence_to_buy = self.sequence_to_buy(&Mineral::Geode);
-        if minutes_to_buy >= self.time_remaining { // If we buy last minute it will do us no good
-            return 0f32;
-        }
-        let mut result = 1f32;
-        let remaining_time = self.time_remaining - minutes_to_buy;
+        // if minutes_to_buy >= self.time_remaining { // If we buy last minute it will do us no good
+        //     return 0f32;
+        // }
+        let result = 1f32;
+        let remaining_time = self.time_remaining as isize - minutes_to_buy as isize;
         result + (remaining_time as f32 / sequence_to_buy as f32)
     }
 
@@ -320,6 +352,64 @@ impl Factory {
             // println!("New max geode: {} -> {}", max_geode, geode_count);
             // wait_user_input();
             *max_geode = geode_count;
+        }
+    }
+
+    fn run_w(&mut self, max_geode: &mut usize) {
+        while self.time_remaining > 0 {
+            let can_buy: Vec<Mineral> =self.mineral_states
+                .iter()
+                .filter_map(|(m, s)| {
+                    if s.can_buy(&self.mineral_states) {
+                        Some(*m)
+                    } else {
+                        None
+                    }
+                }).collect();
+            println!("Can buy: {:?}", can_buy);            
+            if can_buy.len() > 0 && self.time_limit > 1 {
+                let mut clon1 = self.clone();
+                clon1.pass_minute(vec![]);
+                let score1 = Score { 
+                    nr_geodes: clon1.b_line_num_geodes_we_can_buy(),
+                    time_to_buy: clon1.calculate_geode_minutes_to_buy(),
+                    sequence_to_buy: clon1.sequence_to_buy(&Mineral::Geode)
+                };
+
+                let mut scores: Vec<(Option<Mineral>, Score)> = vec![(None, score1)];
+
+                for m in can_buy.into_iter() {                                        
+                    let mut clon2 = self.clone();                    
+                    clon2.pass_minute(vec![m]);
+                    let score2 = Score {
+                        nr_geodes: clon2.b_line_num_geodes_we_can_buy(),
+                        time_to_buy: clon2.calculate_geode_minutes_to_buy(),
+                        sequence_to_buy: clon2.sequence_to_buy(&Mineral::Geode)
+                    };
+                    scores.push((Some(m), score2));                                                        
+                }
+                println!("Scores: {:#?}", scores);
+                let (best_robot, max_score) = scores.into_iter().max_by(|a, b| {
+                    let cmp = a.1.partial_cmp(&b.1).unwrap();
+                    if cmp.is_eq() {
+
+                        a.0.cmp(&b.0)
+                    } else {
+                        cmp
+                    }
+                }).unwrap();
+                
+                if let Some(best_robot) = best_robot {
+                    println!("Bought {:?}", best_robot);                    
+                    self.pass_minute(vec![best_robot]);
+                    println!("Self: {}", self);
+                } else {
+                    println!("Waited...");
+                    self.pass_minute(vec![]);
+                }
+            } else {
+                self.pass_minute(vec![]);
+            }        
         }
     }
 
@@ -503,6 +593,7 @@ mod tests {
         factory.pass_minute(vec![]);
         factory.pass_minute(vec![Mineral::Clay]);        
 
+        println!("{}", factory);
         let minutes_to_buy = factory.calculate_geode_minutes_to_buy();
         let sequence_to_buy = factory.sequence_to_buy(&Mineral::Geode);
         let nr_geodes = factory.b_line_num_geodes_we_can_buy();
@@ -512,21 +603,38 @@ mod tests {
 
 
         factory.pass_minute(vec![]);
-
+        let mut factory_02 = factory.clone();        
         factory.pass_minute(vec![Mineral::Clay]);
-
+        println!("{}", factory);
         // factory.pass_minute(vec![Mineral::Clay]);        
         // factory.pass_minute(vec![]);
 
         let minutes_to_buy = factory.calculate_geode_minutes_to_buy();
         let sequence_to_buy = factory.sequence_to_buy(&Mineral::Geode);
         let nr_geodes = factory.b_line_num_geodes_we_can_buy();
-        assert_eq!(minutes_to_buy, 22);
-        assert_eq!(sequence_to_buy, 22);
-        assert_eq!(nr_geodes, 0f32);
+        assert_eq!(minutes_to_buy, 14);
+        assert_eq!(sequence_to_buy, 15);
+        assert_eq!(nr_geodes, 1.3333334);
+
+        factory_02.pass_minute(vec![]);
+        let minutes_to_buy = factory_02.calculate_geode_minutes_to_buy();
+        let sequence_to_buy = factory_02.sequence_to_buy(&Mineral::Geode);
+        let nr_geodes = factory_02.b_line_num_geodes_we_can_buy();
+        println!("Min: {}, Seq: {}, Nr: {}", minutes_to_buy, sequence_to_buy, nr_geodes);
+        assert_eq!(minutes_to_buy, 14);
+        assert_eq!(sequence_to_buy, 15);
+        assert_eq!(nr_geodes, 1.3333334);
 
         println!("{}", factory);
         println!("Minutes to buy: {}", minutes_to_buy);
+    }
+
+
+    #[test]
+    fn part1() {
+        let b = &*BLUEPRINT;
+        let mut factory = Factory::new(b.clone(), 24);
+        factory.run_w(&mut 0);
     }
 }
 
