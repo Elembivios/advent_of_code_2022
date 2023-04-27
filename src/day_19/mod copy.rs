@@ -1,9 +1,9 @@
 use std::str::FromStr;
 use anyhow::{Result, Error, anyhow};
+use owo_colors::OwoColorize;
 use std::collections::HashMap;
 use std::cmp::Ord;
 
-// 400 -- too low
 use crate::utils::wait_user_input;
 
 pub struct NotEnoughMinerals {
@@ -38,34 +38,23 @@ impl crate::Advent for NotEnoughMinerals {
     }
     
     fn part_01(&self) -> String {
-        1.to_string()
-        // let mut quality_levels_sum = 0;
-        // for (i, blueprint) in self.blueprints.iter().enumerate() {
-        //     println!("Searching blueprint: {}", i);
-        //     let mut factory = Factory::new(blueprint.clone(), 24);              
-        //     let mut max_geode = 0;  
-        //     factory.run(&mut max_geode);
-        //     let quality_level = (i + 1) * max_geode;
-        //     println!("{} ({}) -> {}", i, max_geode, quality_level);
-        //     quality_levels_sum += quality_level;
-        // }
+        let mut best_blueprint = (0, 0);
+        for (i, blueprint) in self.blueprints.iter().enumerate() {
+            println!("Searching blueprint: {}", i);
+            let mut factory = Factory::new(blueprint.clone());              
+            let mut max_geode = 0;  
+            factory.run(&mut max_geode);
+            if max_geode > best_blueprint.1 {
+                best_blueprint = (i + 1, max_geode);
+            }
+        }
         
-        // quality_levels_sum.to_string()
+        let best_blueprint_score = best_blueprint.0 * best_blueprint.1;
+        best_blueprint_score.to_string()
     }
 
     fn part_02(&self) -> String {
-        let mut quality_levels_sum = 0;
-        for (i, blueprint) in self.blueprints[0..3].iter().enumerate() {
-            println!("Searching blueprint: {}", i);
-            let mut factory = Factory::new(blueprint.clone(), 32);              
-            let mut max_geode = 0;  
-            factory.run(&mut max_geode);
-            let quality_level = (i + 1) * max_geode;
-            println!("{} ({}) -> {}", i, max_geode, quality_level);
-            quality_levels_sum += quality_level;
-        }
-        
-        quality_levels_sum.to_string()
+        2.to_string()
     }
 }
 
@@ -79,7 +68,7 @@ enum Mineral {
 }
 
 
-static MINERALS: [Mineral; 4] = [Mineral::Ore, Mineral::Clay, Mineral::Obsidian, Mineral::Geode];
+// static MINERALS: [Mineral; 4] = [Mineral::Ore, Mineral::Clay, Mineral::Obsidian, Mineral::Geode];
 
 impl FromStr for Mineral {
     type Err = Error;
@@ -125,30 +114,6 @@ impl MineralState {
     fn mine(&mut self) {
         self.minerals += self.robots;
     }
-
-    fn minutes_to_buy(&self, quantity: usize) -> usize {
-        if self.robots == 0 {
-            return usize::MAX;
-        }
-        if self.minerals >= quantity {
-            return 0;
-        }
-        let remaining = quantity - self.minerals;
-
-        // Ceil division
-        remaining + self.robots - 1 / self.robots
-    }
-
-    fn sequence_to_buy(&self, quantity: usize) -> usize {
-        if self.robots == 0 {
-            return usize::MAX;
-        } else if self.minerals >= quantity {
-            return 0;
-        } else {
-            // Ceil division
-            quantity + self.robots - 1 / self.robots
-        }
-    }
 }
 
 
@@ -162,7 +127,7 @@ struct Factory {
 }
 
 impl Factory {
-    fn new(blueprint: HashMap<Mineral, HashMap<Mineral, usize>>, time_limit: usize) -> Self {
+    fn new(blueprint: HashMap<Mineral, HashMap<Mineral, usize>>) -> Self {
         let mut mineral_states: HashMap<Mineral, MineralState> = HashMap::new();
         for (m, costs) in blueprint {
             mineral_states.insert(m, MineralState::new(costs));
@@ -171,8 +136,8 @@ impl Factory {
         Self {
             index: 0,
             mineral_states,
-            time_limit,
-            time_remaining: time_limit,
+            time_limit: 24,
+            time_remaining: 24,
             lock_buy_of: vec![]
         }
     }
@@ -183,90 +148,6 @@ impl Factory {
 
     fn state_mut(&mut self, mineral: &Mineral) -> &mut MineralState {
         self.mineral_states.get_mut(mineral).unwrap()
-    }
-
-    fn geode_price(&self) -> HashMap<Mineral, usize> {
-        let mut geode_price: HashMap<Mineral, usize> = HashMap::new();
-
-
-        geode_price
-    }
-
-    fn next_to_buy(&self) {
-
-    }
-
-    fn could_buy(&self) -> Vec<Mineral> {
-        MINERALS.into_iter().filter(|mineral| {
-            self.state(mineral).prices.iter().all(|(m, _p)| {
-                self.state(m).robots > 0
-            })
-        }).collect()        
-    }
-
-    fn mineral_minutes_to_buy(&self, mineral: &Mineral) -> usize {
-        let state = self.state(&mineral);
-
-        let max_minutes_to_buy = state.prices.iter().map(|(m, p)| {
-            let mut minutes_to_buy = self.state(m).minutes_to_buy(*p);
-            if minutes_to_buy == usize::MAX {
-                minutes_to_buy = self.mineral_minutes_to_buy(m) + 1 + *p;
-            }
-            (m, minutes_to_buy)
-        }).max_by(|a, b| {
-            a.1.cmp(&b.1)
-        }).unwrap();
-
-        max_minutes_to_buy.1
-    }
-
-    fn sequence_to_buy(&self, mineral: &Mineral) -> usize {
-        let state = self.state(&mineral);
-
-        let max_sequence_to_buy = state.prices.iter().map(|(m, p)| {
-            let mut sequence_to_buy = self.state(m).sequence_to_buy(*p);
-            if sequence_to_buy == usize::MAX {
-                sequence_to_buy = self.sequence_to_buy(m) + 1 + *p;
-            }
-            (m, sequence_to_buy)
-        }).max_by(|a, b| {
-            a.1.cmp(&b.1)
-        }).unwrap();
-
-        max_sequence_to_buy.1
-    }
-    // fn calculated_price(&self, mineral: &Mineral) -> (usize, usize) {
-    //     let state = self.state(&mineral);
-
-    //     let max_minutes_to_buy = state.prices.iter().map(|(m, p)| {
-    //         let mut minutes_to_buy = self.state(m).minutes_to_buy(*p);
-
-    //         if minutes_to_buy == usize::MAX {
-    //             minutes_to_buy = self.mineral_minutes_to_buy(m) + 1 + *p;
-    //         }
-
-    //         (m, minutes_to_buy)
-    //     }).max_by(|a, b| {
-    //         a.1.cmp(&b.1)
-    //     }).unwrap();
-
-    //     max_minutes_to_buy.1
-    // }
-    
-    fn b_line_num_geodes_we_can_buy(&self) -> f32 {
-        let minutes_to_buy = self.mineral_minutes_to_buy(&Mineral::Geode);
-        let sequence_to_buy = self.sequence_to_buy(&Mineral::Geode);
-        if minutes_to_buy >= self.time_remaining { // If we buy last minute it will do us no good
-            return 0f32;
-        }
-        let mut result = 1f32;
-        let remaining_time = self.time_remaining - minutes_to_buy;
-        result + (remaining_time as f32 / sequence_to_buy as f32)
-    }
-
-    fn calculate_geode_minutes_to_buy(&self) -> usize {
-        // Calculates how many geodes will we be able to buy with current income
-        self.mineral_minutes_to_buy(&Mineral::Geode)
     }
 
     fn run(&mut self, max_geode: &mut usize) {        
@@ -462,71 +343,3 @@ impl std::fmt::Display for Factory {
         write!(f, "\n")
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use lazy_static::lazy_static;    
-    lazy_static! {
-        static ref BLUEPRINT: HashMap<Mineral, HashMap<Mineral, usize>> = {
-            HashMap::from([
-                (Mineral::Ore, HashMap::from([
-                    (Mineral::Ore, 4)
-                ])),
-                (Mineral::Clay, HashMap::from([
-                    (Mineral::Ore, 2)
-                ])),
-                (Mineral::Obsidian, HashMap::from([
-                    (Mineral::Ore, 3),
-                    (Mineral::Clay, 14),
-                ])),
-                (Mineral::Geode, HashMap::from([
-                    (Mineral::Ore, 2),
-                    (Mineral::Obsidian, 7)
-                ]))
-            ])            
-        };
-    }
-
-    #[test]
-    fn it_works() {
-        let b = &*BLUEPRINT;
-        let mut factory = Factory::new(b.clone(), 24);
-        let minutes_to_buy = factory.mineral_minutes_to_buy(&Mineral::Geode);
-        let sequence_to_buy = factory.sequence_to_buy(&Mineral::Geode);
-        let nr_geodes = factory.b_line_num_geodes_we_can_buy();
-        assert_eq!(minutes_to_buy, 25);
-        assert_eq!(sequence_to_buy, 25);
-        assert_eq!(nr_geodes, 0f32);
-
-        factory.pass_minute(vec![]);
-        factory.pass_minute(vec![]);
-        factory.pass_minute(vec![Mineral::Clay]);        
-
-        let minutes_to_buy = factory.calculate_geode_minutes_to_buy();
-        let sequence_to_buy = factory.sequence_to_buy(&Mineral::Geode);
-        let nr_geodes = factory.b_line_num_geodes_we_can_buy();
-        assert_eq!(minutes_to_buy, 22); // Passed 3 minutes - Should still B line it
-        assert_eq!(sequence_to_buy, 22);
-        assert_eq!(nr_geodes, 0f32);
-
-
-        factory.pass_minute(vec![]);
-
-        factory.pass_minute(vec![Mineral::Clay]);
-
-        // factory.pass_minute(vec![Mineral::Clay]);        
-        // factory.pass_minute(vec![]);
-
-        let minutes_to_buy = factory.calculate_geode_minutes_to_buy();
-        let sequence_to_buy = factory.sequence_to_buy(&Mineral::Geode);
-        let nr_geodes = factory.b_line_num_geodes_we_can_buy();
-        assert_eq!(minutes_to_buy, 22);
-        assert_eq!(sequence_to_buy, 22);
-        assert_eq!(nr_geodes, 0f32);
-
-        println!("{}", factory);
-        println!("Minutes to buy: {}", minutes_to_buy);
-    }
-}
-

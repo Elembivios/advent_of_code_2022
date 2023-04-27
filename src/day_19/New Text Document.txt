@@ -1,0 +1,19 @@
+
+Prices:
+Ore -> 4 Ore
+Clay -> 2 Ore
+Obsidian -> 3 Ore, 14 Clay
+Geode -> 2 Ore, 7 Obsidian
+
+For each robot we could buy find out
+how many Geodes we could buy in given time limit.
+Pick the min amount and buy that robot.
+
+If we buy Ore robot:
+4 cycles till buy
+20 min remaining
+
+
+
+
+
