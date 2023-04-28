@@ -1,0 +1,11 @@
+Solution:
+
+Minute -> Bought robot:
+3 -> Clay,
+5 -> Clay,
+7 -> Clay,
+11 -> Obsidian,
+12 -> Clay,
+15 -> Obsidian,
+18 -> Geode,
+21 -> Geode,
