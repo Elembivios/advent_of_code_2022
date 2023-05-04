@@ -86,7 +86,6 @@ struct MineralState {
     robots: usize, // Current robot count
     minerals: usize, // Current mineral count
     prices: HashMap<Mineral, usize>,
-    bought: Vec<usize>
 }
 
 impl MineralState {
@@ -95,7 +94,6 @@ impl MineralState {
             prices,
             robots: 0,
             minerals: 0,
-            bought: vec![]
         }
     }
 }
@@ -145,11 +143,16 @@ impl Factory {
     }
 
     fn pass_minute(&mut self, new_robot: Option<&Mineral>) {
-        if let Some(robot) = new_robot {
-            self.pay_for_robot(robot);
+        {
+            if let Some(robot) = new_robot {
+                self.pay_for_robot(robot);
+            }
         }
-
-        self.mine_resources();
+        
+        {
+            self.mine_resources();
+        }
+        
 
         if let Some(robot) = new_robot {
             self.add_robot(robot);
@@ -165,10 +168,8 @@ impl Factory {
     }
     
     fn add_robot(&mut self, robot: &Mineral) {
-        let time_passed = self.time_passed;
         let state = self.state_mut(robot);
         state.robots += 1;
-        state.bought.push(time_passed);
     }
 
     fn pay_for_robot(&mut self, robot: &Mineral) {
@@ -191,20 +192,12 @@ impl Factory {
 }
 
 impl std::fmt::Display for Factory {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         writeln!(f, "-----------------------")?;
         writeln!(f, "Passed minute: {}, State:", self.time_passed)?;
         for (m, s) in &self.mineral_states {
             writeln!(f, "{: <8} -> R: {: >2}, M: {: >2}", format!("{:?}", m), s.robots, s.minerals)?;
         }
-        let mut bought: Vec<(usize, Mineral)> = vec![];
-        for (m, s) in &self.mineral_states {
-            for time_passed in &s.bought {
-                bought.push((*time_passed, *m));
-            }
-        }
-        bought.sort_by(|a, b| a.0.cmp(&b.0));
-        writeln!(f, "Bought: {:#?}", bought)?;
         write!(f, "\n")
     }
 }
