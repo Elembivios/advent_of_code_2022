@@ -1,6 +1,3 @@
-use crate::utils::wait_user_input;
-// -4193481153551 invalid
-
 pub struct GrovePositioningSystem {    
     file: Vec<isize>
 }
@@ -25,19 +22,11 @@ impl crate::Advent for GrovePositioningSystem {
     }
 
     fn part_02(&self) -> String {
-        // 2.to_string()
         let key = 811589153;
         let file: Vec<isize> = self.file.iter().map(|n| *n * key).collect();
-        let mut indexes:Vec<usize> = file.iter().enumerate().map(|(i, _v)| i).collect();     
-        println!("Initial file: {:?}", file);
-        for z in 0..10 {
-            if z == 2 {
-                let q = 123;
-                println!("q: {}", q);
-            }
+        let mut indexes:Vec<usize> = file.iter().enumerate().map(|(i, _v)| i).collect();
+        for _ in 0..10 {
             indexes = self.mix_numbers(&file, indexes);
-            let temp_file = self.generate_new_from_indexes(&file, &indexes);
-            println!("Temp file: {:?}", temp_file);
         }        
         let new_values = self.generate_new_from_indexes(&file, &indexes);
         let result = self.find_groove_coordinates(new_values);
@@ -63,7 +52,6 @@ impl GrovePositioningSystem {
         let mut result = 0;
         for look_at in look_at_after {
             let capped = (zero_index + look_at) % (values.len());
-            println!("Val: {}", values[capped]);
             result += values[capped];
         }
         result
@@ -73,10 +61,14 @@ impl GrovePositioningSystem {
         let original_file = file.clone();
         
         for (i, x) in original_file.iter().enumerate() {
-            if x.is_positive() {
-                let current_index = indexes[i];                
-                let temp_index = (current_index + *x as usize) % (original_file.len() - 1);                
-                let new_index = temp_index;
+            if x.is_positive() {                
+                let current_index = indexes[i];  
+                let temp_index = current_index + (*x as usize % (original_file.len() - 1));
+                let new_index = if temp_index > original_file.len() - 1 {
+                    temp_index % (original_file.len() - 1)
+                } else {
+                    temp_index
+                };
                 if new_index == current_index {
                     continue;
                 }
