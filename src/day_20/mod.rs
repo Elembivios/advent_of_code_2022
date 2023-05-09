@@ -1,4 +1,5 @@
 use crate::utils::wait_user_input;
+// -4193481153551 invalid
 
 pub struct GrovePositioningSystem {    
     file: Vec<isize>
@@ -15,8 +16,10 @@ impl crate::Advent for GrovePositioningSystem {
     }
     
     fn part_01(&self) -> String {
-        let file: Vec<isize> = self.file.clone();        
-        let new_values = self.mix_numbers(file, false);
+        let file: Vec<isize> = self.file.clone();   
+        let indexes:Vec<usize> = file.iter().enumerate().map(|(i, _v)| i).collect();     
+        let indexes = self.mix_numbers(&file, indexes);
+        let new_values = self.generate_new_from_indexes(&file, &indexes);
         let result = self.find_groove_coordinates(new_values);
         result.to_string()
     }
@@ -24,23 +27,26 @@ impl crate::Advent for GrovePositioningSystem {
     fn part_02(&self) -> String {
         // 2.to_string()
         let key = 811589153;
-        let mut file: Vec<isize> = self.file.iter().map(|n| *n * key).collect();
+        let file: Vec<isize> = self.file.iter().map(|n| *n * key).collect();
+        let mut indexes:Vec<usize> = file.iter().enumerate().map(|(i, _v)| i).collect();     
         println!("Initial file: {:?}", file);
         for z in 0..10 {
-            let mut print = false;
-            if z == 1 {
-                print = true;
+            if z == 2 {
+                let q = 123;
+                println!("q: {}", q);
             }
-            file = self.mix_numbers(file, print);
-            println!("File: {:?}", file);
+            indexes = self.mix_numbers(&file, indexes);
+            let temp_file = self.generate_new_from_indexes(&file, &indexes);
+            println!("Temp file: {:?}", temp_file);
         }        
-        let result = self.find_groove_coordinates(file);
+        let new_values = self.generate_new_from_indexes(&file, &indexes);
+        let result = self.find_groove_coordinates(new_values);
         result.to_string()
     }
 }
 
 impl GrovePositioningSystem {
-    fn generate_new_from_indexes(&self, original_file: Vec<isize>, new_indexes: &Vec<usize>) -> Vec<isize> {
+    fn generate_new_from_indexes(&self, original_file: &Vec<isize>, new_indexes: &Vec<usize>) -> Vec<isize> {
         let mut new_values: Vec<isize> = Vec::with_capacity(original_file.len());
         let mut new_indexes: Vec<(usize, &usize)> = new_indexes.iter().enumerate().collect();
         new_indexes.sort_by(|a, b| a.1.cmp(b.1));
@@ -60,64 +66,56 @@ impl GrovePositioningSystem {
             println!("Val: {}", values[capped]);
             result += values[capped];
         }
-
         result
     }
-
-    fn mix_numbers(&self, file: Vec<isize>, print: bool) -> Vec<isize> {
+    // 4265712588168
+    fn mix_numbers(&self, file: &Vec<isize>, mut indexes: Vec<usize>) -> Vec<usize> {
         let original_file = file.clone();
-        let mut new_indexes: Vec<usize> = file.iter().enumerate().map(|(i, _v)| i).collect();
+        
         for (i, x) in original_file.iter().enumerate() {
             if x.is_positive() {
-                let current_index = new_indexes[i];                
-                let temp_index = current_index + *x as usize;
-                let new_index = temp_index % (original_file.len() - 1);
-                // let new_index = if temp_index == original_file.len() - 1 {
-                //     0
-                // } else {
-                //     temp_index % (original_file.len() - 1)
-                // };
-                // let new_index = (current_index + *x as usize) % (original_file.len() - 1);
+                let current_index = indexes[i];                
+                let temp_index = (current_index + *x as usize) % (original_file.len() - 1);                
+                let new_index = temp_index;
+                if new_index == current_index {
+                    continue;
+                }
                 let (min, max, add) = if current_index < new_index {
                     (current_index, new_index, -1)
                 } else {
                     (new_index, current_index, 1)
                 };
-                new_indexes.iter_mut().filter(|ni| {
+                indexes.iter_mut().filter(|ni| {
                     (min..=max).contains(*ni)
                 }).for_each(|ni| {
                     *ni = (*ni as isize + add) as usize;
                 });
-                new_indexes[i] = new_index;   
+                indexes[i] = new_index;   
             } else if x.is_negative() {
-                let current_index = new_indexes[i];                
+                let current_index = indexes[i];                
                 let temp_index = (current_index as isize + *x) % (original_file.len() as isize - 1);
                 let new_index = if temp_index.is_negative() || temp_index == 0 {
-                    (original_file.len() as isize - 1 + temp_index) as usize
+                    (original_file.len() as isize - 1 + temp_index) as usize                    
                 } else {
                     temp_index as usize
                 };
-
+                if new_index == current_index {
+                    continue;
+                }
                 let (min, max, add) = if current_index < new_index {
                     (current_index, new_index, -1)
                 } else {
                     (new_index, current_index, 1)
                 };
-                new_indexes.iter_mut().filter(|ni| {
+                indexes.iter_mut().filter(|ni| {
                     (min..=max).contains(*ni)
                 }).for_each(|ni| {
                     *ni = (*ni as isize + add) as usize;
                 });
-                new_indexes[i] = new_index;   
-            }
-            if print {
-                let new_values = self.generate_new_from_indexes(original_file.clone(), &new_indexes);
-                println!("New values: {:?}", new_values);
-            }            
+                indexes[i] = new_index;   
+            }        
         }
-
-        let new_values = self.generate_new_from_indexes(original_file, &new_indexes);
-        new_values
+        indexes
     }
 }
 
