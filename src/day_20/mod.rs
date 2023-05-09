@@ -12,11 +12,10 @@ impl crate::Advent for GrovePositioningSystem {
         Self { file }
     }
     
-    fn part_01(&self) -> String {
-        let file: Vec<isize> = self.file.clone();   
-        let indexes:Vec<usize> = file.iter().enumerate().map(|(i, _v)| i).collect();     
-        let indexes = self.mix_numbers(&file, indexes);
-        let new_values = self.generate_new_from_indexes(&file, &indexes);
+    fn part_01(&self) -> String {  
+        let indexes:Vec<usize> = self.file.iter().enumerate().map(|(i, _v)| i).collect();     
+        let indexes = self.mix_numbers(&self.file, indexes);
+        let new_values = self.generate_new_from_indexes(&self.file, &indexes);
         let result = self.find_groove_coordinates(new_values);
         result.to_string()
     }
@@ -56,10 +55,9 @@ impl GrovePositioningSystem {
         }
         result
     }
-    // 4265712588168
+
     fn mix_numbers(&self, file: &Vec<isize>, mut indexes: Vec<usize>) -> Vec<usize> {
-        let original_file = file.clone();
-        
+        let original_file = file.clone();        
         for (i, x) in original_file.iter().enumerate() {
             if x.is_positive() {                
                 let current_index = indexes[i];  
