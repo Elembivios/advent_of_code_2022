@@ -141,6 +141,7 @@ fn solve_equation(target: isize, humn_path: Vec<Equation>) -> isize {
         match step {
             Equation::Expression((lhs, operator, rhs)) => {
                 result = match (*lhs, *rhs) {
+                    // Reversing math operations
                     (Equation::Value(val), _) => {
                         match operator {
                             '+' => sub(result, val),
