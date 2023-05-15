@@ -1,24 +1,42 @@
-use std::ops::Range;
+use crate::utils::{point::{Coord, Direction, Point}, wait_user_input};
+use either::Either;
 
-use crate::utils::point::{Coord, Direction, Point};
+type C = Coord<usize>;
+
+#[derive(Debug)]
+enum Space {
+    Empty,
+    Pillar
+}
+
+impl Space {
+    fn is_pillar(&self) -> bool {
+        match self {
+            Self::Empty => false,
+            Self::Pillar => true
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        !self.is_pillar()
+    }
+}
+
+#[derive(Debug, Clone)]
+enum Instruction {
+    Go(usize),
+    Turn(Turn)
+}
 
 
 pub struct MonkeyMap {
-    pillars: Vec<Coord<usize>>,
-    x_map: Vec<Range<usize>>,
-    y_map: Vec<Range<usize>>,
+    map: Vec<Point<usize, Space>>,
     instructions: Vec<Instruction>
 }
 
 #[derive(Debug, Clone, Copy)]
 enum Turn {
     L, R
-}
-
-#[derive(Debug)]
-enum Instruction {
-    Go(usize),
-    Turn(Turn)
 }
 
 impl Point<usize, Direction> {
@@ -63,44 +81,24 @@ impl crate::Advent for MonkeyMap {
     fn new(data: &str) -> Self
         where 
             Self: Sized {
-
-        let mut pillars: Vec<Coord<usize>> = vec![];
-        let mut x_map = vec![];      
-        println!("DATA: {:?}", data);
         let (map, instructions) = data.split_once("\r\n\r\n").or_else(|| data.split_once("\n\n")).unwrap();
 
-        map.lines().enumerate().map(|(x, l)| {
-            let row: Vec<(usize, char)> = l.chars().enumerate().skip_while(|(_y, c)| *c == ' ').collect();
-            (x, row)
-        }).for_each(|(x, row)| {
-            println!("Row: {:?}", row);
-            row.iter().for_each(|&(y, c)| {
-                if c == '#' {
-                    let pillar: Coord<usize> = Coord::new(x, y);
-                    pillars.push(pillar);
+        let map = map.lines().enumerate().map(|(y, l)| {
+            let row: Vec<(usize, char)> = l.chars().enumerate().skip_while(|(_x, c)| *c == ' ').collect();
+            (y, row)
+        }).flat_map(|(y, row)| {
+            row.iter().map(|&(x, c)| {
+                match c {
+                    '#' => Point::new(x, y, Space::Pillar),
+                    '.' => Point::new(x, y, Space::Empty),
+                    _ => panic!("Invalid char for space {}", c)
                 }
-            });
-            let start = row[0].0;
-            let end = row[row.len() - 1].0;
-            x_map.push(start..end);
-        });
-
-        let width = x_map.first().unwrap().len();
-
-        let mut y_map_start: Vec<usize> = (0..width).map(|_| usize::MAX).collect();
-        let mut y_map_end: Vec<usize> = (0..width).map(|_| usize::MIN).collect();
-
-        for (x, rng) in x_map.iter().enumerate() {
-            y_map_start.iter_mut().enumerate().filter(|(y, n)| rng.contains(&y) && x < **n).for_each(|(_y, n)| *n = x);
-            y_map_end.iter_mut().enumerate().filter(|(y, n)| rng.contains(&y) && x > **n).for_each(|(_y, n)| *n = x);
-        }
-
-        let y_map = y_map_start.iter().zip(y_map_end).map(|(start, end)| (*start..end)).collect();
+            }).collect::<Vec<Point<usize, Space>>>()            
+        }).collect();
 
         let instructions_str = instructions.lines().next().unwrap();
         let mut instructions: Vec<Instruction> = vec![];
         instructions_str.split_inclusive(&['R', 'L'][..]).for_each(|s| {
-            println!("S: {}", s);
             
             let turn = match &s[s.len() - 1..s.len()] {
                 "L" => Some(Turn::L),
@@ -118,35 +116,114 @@ impl crate::Advent for MonkeyMap {
                 instructions.push(Instruction::Turn(turn));
             }            
         });
-        println!("Instructions: {:?}", instructions);
 
 
         Self {
-            pillars: pillars,
-            x_map: x_map,
-            y_map: y_map,
+            map,
             instructions
         }
     }
 
     fn part_01(&self) -> String {
-        let mut current_position: Point<usize, Direction> = Point::new(0, 0, Direction::E);
-        for instruction in &self.instructions {
-            match instruction {
-                Instruction::Go(num) => {
-                    // let pillars_in_the_way = self.pillars.iter().filter(|p| {
-                    //     let axis = current_position.value.affected_axes()[0];
+        let mut current_position: Point<usize, Direction> = Point {
+            coord: self.map[0].coord.clone(),
+            value: Direction::E
+        };
+        let mut instructions_queue: Vec<Instruction> = self.instructions.iter().rev().cloned().collect();
 
-                    // })
-                    current_position.go(*num)
+        while let Some(instruction) = instructions_queue.pop() {
+            match instruction {
+                Instruction::Go(num_steps) => {                    
+                    let (_steps_taken, next_position, _hit_pillar) = self.get_next_position(&current_position, num_steps);
+                    // wait_user_input();
+                    // let axis = current_position.value.affected_axes()[0];
+                    current_position.coord = next_position;
+                    // if hit_pillar {
+                    //     let remaining_steps = num_steps - steps_taken;
+                    //     if remaining_steps > 0 {                            
+                    //         instructions_queue.push(Instruction::Go(remaining_steps));
+                    //         instructions_queue.push(Instruction::Turn(Turn::R));
+                    //         continue;
+                    //     }
+                    // }
                 },
-                Instruction::Turn(turn) => current_position.turn(*turn)
+                Instruction::Turn(turn) => current_position.turn(turn)
             }
         }
-        1.to_string()
+
+
+        let facing: usize = match current_position.value {
+            Direction::E => 0,
+            Direction::S => 1,
+            Direction::W => 2,
+            Direction::N => 3,
+            _ => unimplemented!()
+        };
+
+        let result = {
+            1000 * (current_position.coord.y + 1) +
+            4 * (current_position.coord.x + 1) +
+            facing
+        };
+        result.to_string()
     }
 
     fn part_02(&self) -> String {
         2.to_string()
     }
+}
+
+impl MonkeyMap {
+    fn get_next_position(&self, current_position: &Point<usize, Direction>, num_steps: usize) -> (usize, C, bool) {
+        let axis = &current_position.value.affected_axes()[0];
+        let other_axis = axis.other();
+        let map_it = match current_position.value {
+            Direction::S | Direction::E => Either::Left(self.map.iter()),
+            Direction::N | Direction::W => Either::Right(self.map.iter().rev()),
+            _ => unimplemented!()
+        };
+        let mut next_position = None;
+        either::for_both!(map_it, it => {
+            let mut it = it
+                .filter(|s| {
+                    s.coord.get(&other_axis) == current_position.coord.get(&other_axis)
+                })
+                .cycle()
+                .skip_while(|p| {
+                    p.coord != current_position.coord
+                })
+                .enumerate()                
+                .peekable();            
+
+            while let Some((i, s)) = it.next() {
+                if it.peek().and_then(|(_, next_s)| Some(next_s.value.is_pillar())).unwrap_or(false) {
+                    next_position = Some((i, s.coord, true));
+                    break;
+                }
+                if i < num_steps {
+                    continue;
+                }                    
+                next_position = Some((i, s.coord, false));
+                break;
+            };            
+        });
+        next_position.unwrap()            
+    }
+
+    // fn get_first_pillar(&self, current_position: &Point<usize, Direction>) -> Option<(&Coord<usize>, usize)> {
+    //     let mut pillars: Vec<_> = self.pillars.iter().filter(|p| {
+    //         current_position.coord.x == p.x
+    //     }).map(|p| {
+    //         let dist = if p.y < current_position.coord.y {
+    //             current_position.coord.y - p.y
+    //         } else {
+    //             current_position.coord.y - (self.y_map[current_position.coord.x].end - p.y)
+    //         };
+    //         (p, dist)
+    //     }).collect();
+    //     pillars.sort_by(|a, b| {
+    //         a.1.cmp(&b.1)
+    //     });
+    //     pillars.first().copied()
+    // }
 }

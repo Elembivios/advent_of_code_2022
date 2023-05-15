@@ -127,6 +127,7 @@ impl<T> From<(T, T)> for Coord<T>
     }
 }
 
+#[derive(Debug)]
 pub enum Direction { 
     N, E, S, W,
     NE, NW, SE, SW
@@ -142,6 +143,7 @@ impl Direction {
     }
 }
 
+#[derive(Copy, Clone, Debug)]
 pub enum Axis { X, Y }
 
 impl Axis {
