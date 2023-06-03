@@ -1,4 +1,4 @@
-use crate::utils::{point::{Coord, Direction, Point}, wait_user_input};
+use crate::utils::point::{Coord, Direction, Point};
 use either::Either;
 
 type C = Coord<usize>;
@@ -15,10 +15,6 @@ impl Space {
             Self::Empty => false,
             Self::Pillar => true
         }
-    }
-
-    fn is_empty(&self) -> bool {
-        !self.is_pillar()
     }
 }
 
@@ -40,16 +36,6 @@ enum Turn {
 }
 
 impl Point<usize, Direction> {
-    fn go(&mut self, num: usize) {
-        use Direction::*;
-        match self.value {
-            N => self.coord.y - num,
-            E => self.coord.x + num,
-            S => self.coord.y + num,
-            W => self.coord.x - num,
-            _ => unimplemented!()
-        };
-    }
     fn turn(&mut self, turn: Turn) {
         use Turn::*;
         use Direction::*;
@@ -135,22 +121,11 @@ impl crate::Advent for MonkeyMap {
             match instruction {
                 Instruction::Go(num_steps) => {                    
                     let (_steps_taken, next_position, _hit_pillar) = self.get_next_position(&current_position, num_steps);
-                    // wait_user_input();
-                    // let axis = current_position.value.affected_axes()[0];
                     current_position.coord = next_position;
-                    // if hit_pillar {
-                    //     let remaining_steps = num_steps - steps_taken;
-                    //     if remaining_steps > 0 {                            
-                    //         instructions_queue.push(Instruction::Go(remaining_steps));
-                    //         instructions_queue.push(Instruction::Turn(Turn::R));
-                    //         continue;
-                    //     }
-                    // }
                 },
                 Instruction::Turn(turn) => current_position.turn(turn)
             }
         }
-
 
         let facing: usize = match current_position.value {
             Direction::E => 0,
@@ -209,21 +184,4 @@ impl MonkeyMap {
         });
         next_position.unwrap()            
     }
-
-    // fn get_first_pillar(&self, current_position: &Point<usize, Direction>) -> Option<(&Coord<usize>, usize)> {
-    //     let mut pillars: Vec<_> = self.pillars.iter().filter(|p| {
-    //         current_position.coord.x == p.x
-    //     }).map(|p| {
-    //         let dist = if p.y < current_position.coord.y {
-    //             current_position.coord.y - p.y
-    //         } else {
-    //             current_position.coord.y - (self.y_map[current_position.coord.x].end - p.y)
-    //         };
-    //         (p, dist)
-    //     }).collect();
-    //     pillars.sort_by(|a, b| {
-    //         a.1.cmp(&b.1)
-    //     });
-    //     pillars.first().copied()
-    // }
 }
