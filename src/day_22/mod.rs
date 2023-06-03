@@ -25,6 +25,7 @@ enum Instruction {
 }
 
 
+
 pub struct MonkeyMap {
     map: Vec<Point<usize, Space>>,
     instructions: Vec<Instruction>
@@ -69,10 +70,18 @@ impl crate::Advent for MonkeyMap {
             Self: Sized {
         let (map, instructions) = data.split_once("\r\n\r\n").or_else(|| data.split_once("\n\n")).unwrap();
 
+        let mut max_x: usize = 0;
+        let max_y: usize = map.lines().count();
+
+
         let map = map.lines().enumerate().map(|(y, l)| {
+            if l.len() > max_x {
+                max_x = l.len();
+            }
             let row: Vec<(usize, char)> = l.chars().enumerate().skip_while(|(_x, c)| *c == ' ').collect();
             (y, row)
         }).flat_map(|(y, row)| {
+            
             row.iter().map(|&(x, c)| {
                 match c {
                     '#' => Point::new(x, y, Space::Pillar),
@@ -81,6 +90,9 @@ impl crate::Advent for MonkeyMap {
                 }
             }).collect::<Vec<Point<usize, Space>>>()            
         }).collect();
+
+        let side_size = std::cmp::max(max_y, max_x) / 4;
+
 
         let instructions_str = instructions.lines().next().unwrap();
         let mut instructions: Vec<Instruction> = vec![];
