@@ -24,8 +24,6 @@ enum Instruction {
     Turn(Turn)
 }
 
-
-
 pub struct MonkeyMap {
     map: Vec<Point<usize, Space>>,
     instructions: Vec<Instruction>
@@ -73,8 +71,7 @@ impl crate::Advent for MonkeyMap {
         let mut max_x: usize = 0;
         let max_y: usize = map.lines().count();
 
-
-        let map = map.lines().enumerate().map(|(y, l)| {
+        let flattened_map: Vec<Point<usize, Space>> = map.lines().enumerate().map(|(y, l)| {
             if l.len() > max_x {
                 max_x = l.len();
             }
@@ -91,8 +88,7 @@ impl crate::Advent for MonkeyMap {
             }).collect::<Vec<Point<usize, Space>>>()            
         }).collect();
 
-        let side_size = std::cmp::max(max_y, max_x) / 4;
-
+        let _side_size: usize = std::cmp::max(max_y, max_x) / 4;
 
         let instructions_str = instructions.lines().next().unwrap();
         let mut instructions: Vec<Instruction> = vec![];
@@ -115,9 +111,8 @@ impl crate::Advent for MonkeyMap {
             }            
         });
 
-
         Self {
-            map,
+            map: flattened_map,
             instructions
         }
     }
