@@ -127,11 +127,20 @@ impl<T> From<(T, T)> for Coord<T>
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Direction { 
     N, E, S, W,
     NE, NW, SE, SW
 }
+
+pub const TOUCHING_DIRECTIONS: [Direction; 4] = [
+    Direction::N, Direction::E, Direction::S, Direction::W
+];
+
+const DIRECTIONS: [Direction; 8]  = [
+    Direction::N, Direction::NE, Direction::E, Direction::SE,
+    Direction::S, Direction::SW, Direction::W, Direction::NW
+];
 
 impl Direction {
     pub fn affected_axes(&self) -> Vec<Axis> {        
@@ -140,6 +149,16 @@ impl Direction {
             Direction::W | Direction::E => vec![Axis::X],
             _ => vec![Axis::X, Axis::Y]
         }
+    }
+
+    pub fn rotate(&self, degrees: isize) -> Self {
+        if degrees % 45 != 0 {
+            panic!("Invalid value for rotation degrees ({}). Degrees need to be in 45 steps (divisible by 45)", degrees);
+        }
+        let rotations: isize = degrees / 45;
+        let index = DIRECTIONS.iter().position(|d| d == self).unwrap() as isize;
+        let new_index = (index + rotations).rem_euclid(DIRECTIONS.len() as isize) as usize;
+        DIRECTIONS[new_index]
     }
 }
 
@@ -204,6 +223,19 @@ impl<V> Grid<V>
         }
     }
 
+    pub fn get_neighbour(&self, coord: &Coord<usize>, direction: Direction) -> Option<Coord<usize>> {
+        match direction {
+            Direction::N => if coord.y == 0 { None } else { Some(Coord::new(coord.x, coord.y - 1)) },            
+            Direction::E => if coord.x == self.width - 1 { None } else { Some(Coord::new(coord.x + 1, coord.y)) },
+            Direction::S => if coord.y == self.height - 1 { None } else { Some(Coord::new(coord.x, coord.y + 1)) },
+            Direction::W => if coord.x == 0 { None } else { Some(Coord::new(coord.x - 1, coord.y)) },
+            Direction::NE => if coord.x == self.width - 1 || coord.y == 0 { None } else { Some(Coord::new(coord.x + 1, coord.y - 1))},
+            Direction::SE => if coord.x == self.width - 1 || coord.y == self.height - 1 { None } else { Some(Coord::new(coord.x + 1, coord.y + 1))},
+            Direction::SW => if coord.x == 0 || coord.y == self.height - 1 { None } else { Some(Coord::new(coord.x - 1, coord.y + 1))},
+            Direction::NW => if coord.x == 0 || coord.y == 0 { None } else { Some(Coord::new(coord.x - 1, coord.y - 1))},
+        }
+    }
+
     pub fn get_val(&self, coord: &Coord<usize>) -> &V {
         &self.map[coord.y * self.width + coord.x]
     }
@@ -221,22 +253,65 @@ impl<V> Grid<V>
     }
 
     pub fn neighbour_coords(&self, coord: &Coord<usize>) -> Vec<Coord<usize>> {
+        TOUCHING_DIRECTIONS
+            .iter()
+            .filter_map(|direction| {
+                self.get_neighbour(coord, *direction)
+            }).collect()
+        // let mut neighbours = vec![];
+        // if coord.x < self.width - 1 {
+        //     neighbours.push(Coord::new(coord.x + 1, coord.y));
+        // }
+        // if coord.y < self.height - 1 {
+        //     neighbours.push(Coord::new(coord.x, coord.y + 1));
+        // }
+        // if coord.x > 0 {            
+        //     neighbours.push(Coord::new(coord.x - 1, coord.y));            
+        // }        
+        // if coord.y > 0 {
+        //     neighbours.push(Coord::new(coord.x, coord.y - 1));
+        // }        
+        // neighbours
+    }
+
+    pub fn neigbour_coords_optional(&self, coord: &Coord<usize>) -> Vec<Option<Coord<usize>>> {
+        TOUCHING_DIRECTIONS
+            .iter()
+            .map(|direction| {
+                self.get_neighbour(coord, *direction)
+            }).collect()
+    }
+
+    /// Get's neighbour coords of a specified coordinate. If the neighbour
+    /// coordinate is off the edge of map, it returns the one on the opposite 
+    /// end of map.
+    pub fn neighbour_coords_wrapping(&self, coord: &Coord<usize>) -> Vec<Coord<usize>> {
         let mut neighbours = vec![];
-        if coord.x > 0 {            
-            neighbours.push(Coord::new(coord.x - 1, coord.y));            
-        }
-
-        if coord.x < self.width - 1 {
-            neighbours.push(Coord::new(coord.x + 1, coord.y));
-        }
-
-        if coord.y > 0 {
+        // North
+        if coord.y == 0 {
+            neighbours.push(Coord::new(coord.x, self.height - 1));
+        } else {
             neighbours.push(Coord::new(coord.x, coord.y - 1));
         }
-
-        if coord.y < self.height - 1 {
+        // East
+        if coord.x == self.width - 1 {
+            neighbours.push(Coord::new(0, coord.y));
+        } else {
+            neighbours.push(Coord::new(coord.x + 1, coord.y));
+        }
+        // South
+        if coord.y == self.height - 1 {
+            neighbours.push(Coord::new(coord.x, 0));
+        } else {
             neighbours.push(Coord::new(coord.x, coord.y + 1));
         }
+
+        // West
+        if coord.x == 0 {
+            neighbours.push(Coord::new(self.width - 1, coord.y));
+        } else {
+            neighbours.push(Coord::new(coord.x - 1, coord.y));
+        }        
         neighbours
     }
 
@@ -255,7 +330,49 @@ impl<V> Grid<V>
         })
     }
 
+    pub fn direction_iter(&self, direction: Direction, current_coord: Coord<usize>) -> GridDirectionIterator {
+        let axis = direction.affected_axes()[0];
+        GridDirectionIterator {
+            height: self.height,
+            width: self.width,
+            direction, current_coord, axis
+        }
+    }
+
+    pub fn wrapped_direction_iter(&self, direction: Direction, current_coord: Coord<usize>) -> GridWrappedDirectionIterator {
+        let axis = direction.affected_axes()[0];
+        GridWrappedDirectionIterator { 
+            height: self.height, 
+            width: self.width, 
+            direction, current_coord, axis 
+        }
+    }
 }
+
+impl<V> Grid<V>
+where V: Copy
+ {
+    pub fn rotate(&mut self, clockwise: bool) {
+        let new_map: Vec<V> = if clockwise {
+            (0..self.width).map(|x| {
+                (0..self.height).rev().map(|y| {
+                    self.map[y * self.width + x]
+                }).collect::<Vec<V>>()
+            }).flatten().collect()
+        } else {
+            (0..self.width).rev().map(|x| {
+                (0..self.height).map(|y| {
+                    self.map[y * self.width + x]
+                }).collect::<Vec<V>>()
+            }).flatten().collect()
+        };
+        self.map = new_map;
+        let width = self.width;
+        self.width = self.height;
+        self.height = width;        
+    }
+}
+
 
 impl<V> Grid<V> 
 where 
@@ -292,5 +409,99 @@ where
             write!(f, "\n")?;
         }
         write!(f, "\n")
+    }
+}
+
+
+// Endles iterator of the grid in specified direction
+// When it gets to the edge it jumps to the other side and 
+// continues iterating in that direction.
+
+
+pub struct GridDirectionIterator {
+    height: usize,
+    width: usize,
+    direction: Direction,
+    current_coord: Coord<usize>,
+    axis: Axis,
+}
+
+impl Iterator for GridDirectionIterator {
+    type Item = Coord<usize>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let val = self.current_coord.get_mut(&self.axis);
+        match self.direction {
+            Direction::S => {
+                if *val == self.height - 1 { return None; } else { *val += 1; }
+            }
+            Direction::E => {
+                if *val == self.width - 1 { return None; } else { *val += 1; }
+            },
+            Direction::N => {
+                if *val == 0 { return None; } else { *val -= 1; }
+            }
+            Direction::W => {
+                if *val == 0 { return None; } else { *val -= 1; }
+            },
+            _ => unimplemented!("Iterator for direction {:?} is not implemented.", self.direction)
+        }        
+        Some(self.current_coord.clone())
+    }
+}
+
+pub struct GridWrappedDirectionIterator {
+    height: usize,
+    width: usize,
+    direction: Direction,
+    current_coord: Coord<usize>,
+    axis: Axis,
+}
+
+impl Iterator for GridWrappedDirectionIterator {
+    type Item = Coord<usize>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let val = self.current_coord.get_mut(&self.axis);
+        match self.direction {
+            Direction::S => {
+                if *val == self.height - 1 { *val = 0; } else { *val += 1; }
+            }
+            Direction::E => {
+                if *val == self.width - 1 { *val = 0; } else { *val += 1; }
+            },
+            Direction::N => {
+                if *val == 0 { *val = self.height - 1; } else { *val -= 1; }
+            }
+            Direction::W => {
+                if *val == 0 { *val = self.width - 1; } else { *val -= 1; }
+            },
+            _ => unimplemented!("Iterator for direction {:?} is not implemented.", self.direction)
+        }        
+        Some(self.current_coord.clone())
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_direction_rotation() {
+        use Direction::*;
+
+        assert_eq!(N.rotate(90), E);
+        assert_eq!(N.rotate(-90), W);
+        assert_eq!(N.rotate(180), S);
+        assert_eq!(N.rotate(-180), S);
+        assert_eq!(N.rotate(-45), NW);
+        assert_eq!(N.rotate(45), NE);
+        assert_eq!(N.rotate(135), SE);
+        assert_eq!(N.rotate(-135), SW);
+        assert_eq!(N.rotate(360), N);
+
+        assert_eq!(S.rotate(90), W);
+        assert_eq!(S.rotate(-90), E);
+
     }
 }
