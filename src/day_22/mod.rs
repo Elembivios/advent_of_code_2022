@@ -227,22 +227,23 @@ impl crate::Advent for MonkeyMap {
         };
         let mut instructions_queue = VecDeque::from(self.instructions.clone());
         let mut z = 0;
-        let mut d_next = false;
+        let mut show_next = 0;
         while let Some(instruction) = instructions_queue.pop_front() {
-            println!("Instruction: {:?}, Current pos: {:?}", instruction, current_inner_position);
+            println!("{} -> {:?} {:?}", current_inner_position.coord, current_inner_position.value, instruction);
             match instruction {
                 Instruction::Go(num_steps) => {
                     let current_side = self.sides.get_val(&current_side_coord).as_ref().unwrap();
-                    if d_next {
-                        println!("Z: {}, Current side: {}", z, current_side_coord);
+                    if show_next > 0 {
+                        println!("Show next: {}, Z: {}, Current side: {}", show_next, z, current_side_coord);
                         current_side.display_with_points(vec![current_inner_position.coord], 'X');
                         wait_user_input();
-                        d_next = false;                        
-                    }              
+                        show_next -= 1;                        
+                    }
+                    
                     let (steps_taken, next_position, hit_pillar) = self.get_next_side_position(
-                        current_side_coord, &current_inner_position, num_steps);
-                    println!("Steps: {}, NP: {}, Hit: {}", steps_taken, next_position, hit_pillar);
+                        current_side_coord, &current_inner_position, num_steps);                    
                     let steps_diff = num_steps - steps_taken;
+                    println!("Steps: {}, NP: {}, Hit: {}, Steps diff: {}", steps_taken, next_position, hit_pillar, steps_diff);
                     if steps_diff == 0 || hit_pillar == true {                                          
                         current_inner_position.coord = next_position;
                     } else {
@@ -270,16 +271,10 @@ impl crate::Advent for MonkeyMap {
                         }
 
                         // Change direction
-                        let new_dir = match side_rotation {
-                            0 => d,
-                            -90 => d.rotate(-90),
-                            90 => d.rotate(90),
-                            180 | -180 => d.rotate(180),
-                            _ => unreachable!()
-                        };
+                        let new_dir = d.rotate(side_rotation);
 
                         // Check if next coord on new side is a pillar!
-                        if !self.sides.get_val(&new_side_coord).as_ref().unwrap().get_val(&new_c).is_pillar() {
+                        if !self.sides.get_val(&new_side_coord).as_ref().unwrap().get_val(&new_c).is_pillar() {                            
                             current_inner_position.coord = new_c;
                             current_inner_position.value = new_dir;
                             current_side_coord = new_side_coord;
@@ -287,11 +282,13 @@ impl crate::Advent for MonkeyMap {
                                 instructions_queue.push_front(Instruction::Go(steps_diff));
                             }                            
                         } else {
-                            // println!("Z: {}, Current side: {}", z, current_side_coord);
-                            // current_side.display_with_points(vec![current_inner_position.coord], 'X');
-                            // d_next = true;      
+                            println!("===========");
+                            println!("Z: {}, Current side: {}", z, current_side_coord);
+                            current_side.display_with_points(vec![current_inner_position.coord], 'X');
+                            wait_user_input();                           
+                            show_next = 2;
                             current_inner_position.coord = next_position;
-                        }           
+                        }
                     }
                 },
                 Instruction::Turn(turn) => {
@@ -309,13 +306,19 @@ impl crate::Advent for MonkeyMap {
             Direction::N => 3,
             _ => unimplemented!()
         };
-        let x_mul = self.sides.get_val(&current_side_coord).as_ref().unwrap().width * current_side_coord.x;
 
-        let y_mul = self.sides.get_val(&current_side_coord).as_ref().unwrap().height * current_side_coord.y;
+        let w = self.sides.get_val(&current_side_coord).as_ref().unwrap().width;
+        let sx = current_side_coord.x;
+        let h = self.sides.get_val(&current_side_coord).as_ref().unwrap().height;
+        let sy = current_side_coord.y;
+        println!("W:{}, SX: {}, H: {}, SY: {}", w, sx, h, sy);
+        let x_mul = w * sx;
+        let y_mul =  h * sy;
 
-        let y = current_inner_position.coord.y + 1 + y_mul;
         let x = current_inner_position.coord.x + 1 + x_mul;
-        println!("X: {}, xmul: {}, Y: {}, ymul: {}", x, y, x_mul, y_mul);
+        let y = current_inner_position.coord.y + 1 + y_mul;
+        
+        println!("X: {}, xmul: {}, Y: {}, ymul: {}", x, x_mul, y, y_mul);
         let result = {
             1000 * y +
             4 * x +
