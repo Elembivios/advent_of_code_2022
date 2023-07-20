@@ -1,14 +1,10 @@
 use itertools::Itertools;
 use anyhow::{Result, Error, anyhow};
-use crate::utils::{point::{Coord, Direction, Point, Grid, TOUCHING_DIRECTIONS}, wait_user_input};
-use std::{fmt, collections::{HashMap, VecDeque}, ops::Index, thread::current};
+use crate::utils::point::{Coord, Direction, Point, Grid};
+use std::fmt;
+use std::collections::VecDeque;
 
 type C = Coord<usize>;
-
-// 117086 -- too low
-// 41223 -- too low
-// 106401
-// 126353 -- not right
 
 #[derive(Debug, PartialEq, Clone)]
 enum Space {
@@ -102,7 +98,6 @@ impl crate::Advent for MonkeyMap {
 
         let height: usize = map.lines().count();
         let width: usize = map.lines().map(|r| r.len()).max().unwrap();
-        println!("Height: {}, Width: {}", height, width);
         let side_size = std::cmp::max(height, width) / 4;
 
         let sides: Vec<Vec<Grid<Space>>> = map.lines().chunks(side_size).into_iter().map(|slice| {            
@@ -176,7 +171,7 @@ impl crate::Advent for MonkeyMap {
     }
 
     fn part_01(&self) -> String {
-        let current_coord: Coord<usize> = Coord::new(
+        let current_coord: C = Coord::new(
             self.flattened_map.map.iter().enumerate().skip_while(|s| *s.1 == Space::Void).map(|s| s.0).next().unwrap(),
             0
         );
@@ -211,54 +206,36 @@ impl crate::Advent for MonkeyMap {
     }
 
     fn part_02(&self) -> String {
-        let sides: Vec<Coord<usize>> = self.sides.iter_coords().filter(|c| self.sides.get_val(c).is_some()).collect();
-
-        for side_c in sides {
-            for dir in TOUCHING_DIRECTIONS {
-                let nc = self.get_next_side(&side_c, dir);
-                println!("S: {}, D: {:?}, Nc: {:?}", side_c, dir, nc);
-            }
-        }        
-
-        let mut current_side_coord = self.sides.iter_coords().filter(|c: &Coord<usize>| self.sides.get_val(c).is_some()).next().unwrap();
+        let mut current_side_coord = self.sides.iter_coords().filter(|c: &C| self.sides.get_val(c).is_some()).next().unwrap();
         let mut current_inner_position: Point<usize, Direction> = Point {
             coord: Coord::new(0, 0),
             value: Direction::E
         };
         let mut instructions_queue = VecDeque::from(self.instructions.clone());
-        let mut z = 0;
-        let mut show_next = 0;
         while let Some(instruction) = instructions_queue.pop_front() {
-            println!("{} -> {:?} {:?}", current_inner_position.coord, current_inner_position.value, instruction);
             match instruction {
                 Instruction::Go(num_steps) => {
-                    let current_side = self.sides.get_val(&current_side_coord).as_ref().unwrap();
-                    if show_next > 0 {
-                        println!("Show next: {}, Z: {}, Current side: {}", show_next, z, current_side_coord);
-                        current_side.display_with_points(vec![current_inner_position.coord], 'X');
-                        wait_user_input();
-                        show_next -= 1;                        
-                    }
-                    
+                    let current_side = self.sides.get_val(&current_side_coord).as_ref().unwrap();                    
                     let (steps_taken, next_position, hit_pillar) = self.get_next_side_position(
                         current_side_coord, &current_inner_position, num_steps);                    
                     let steps_diff = num_steps - steps_taken;
-                    println!("Steps: {}, NP: {}, Hit: {}, Steps diff: {}", steps_taken, next_position, hit_pillar, steps_diff);
-                    if steps_diff == 0 || hit_pillar == true {                                          
+                    if steps_diff == 0 || hit_pillar == true {
+                        // Did all the steps on this plane / side or hit a pillar and 
+                        // came to a stop.                                       
                         current_inner_position.coord = next_position;
                     } else {
-                        let (new_side_coord, side_rotation, flip) = self.get_next_side(
+                        // Switching planes / side
+                        let (new_side_coord, side_rotation) = self.get_next_side(
                             &current_side_coord, current_inner_position.value);                        
-                        // let new_dir = current_inner_position.value.rotate(new_dir);                        
                         let c = current_inner_position.coord;
                         let d = current_inner_position.value;
 
                         // Position coordinate to the opposide side and flip if necessary                      
-                        let mut new_c: Coord<usize> = match (d, flip) {
-                            (Direction::N, _) => {Coord::new(c.x, current_side.height - 1)},
-                            (Direction::E, _) => {Coord::new(0, c.y)},
-                            (Direction::S, _) => {Coord::new(c.x, 0)},
-                            (Direction::W, _) => {Coord::new(current_side.width - 1, c.y)},
+                        let mut new_c: C = match d {
+                            Direction::N => {Coord::new(c.x, current_side.height - 1)},
+                            Direction::E => {Coord::new(0, c.y)},
+                            Direction::S => {Coord::new(c.x, 0)},
+                            Direction::W => {Coord::new(current_side.width - 1, c.y)},
                             _ => unreachable!()
                         };
                         // Rotate coordinate based on required new side rotation
@@ -278,15 +255,12 @@ impl crate::Advent for MonkeyMap {
                             current_inner_position.coord = new_c;
                             current_inner_position.value = new_dir;
                             current_side_coord = new_side_coord;
-                            if steps_diff > 0 {
-                                instructions_queue.push_front(Instruction::Go(steps_diff));
+                            if steps_diff > 1 {
+                                // One step is required to switch planes / sides
+                                instructions_queue.push_front(Instruction::Go(steps_diff - 1));
                             }                            
                         } else {
-                            println!("===========");
-                            println!("Z: {}, Current side: {}", z, current_side_coord);
-                            current_side.display_with_points(vec![current_inner_position.coord], 'X');
-                            wait_user_input();                           
-                            show_next = 2;
+                            // Next coordinate on the next side / plane is a pillar
                             current_inner_position.coord = next_position;
                         }
                     }
@@ -295,10 +269,7 @@ impl crate::Advent for MonkeyMap {
                     current_inner_position.turn(turn)
                 }
             }
-            z += 1;
         }
-        println!("---------------------");
-        println!("Pos: {:?}", current_inner_position);
         let facing: usize = match current_inner_position.value {
             Direction::E => 0,
             Direction::S => 1,
@@ -307,18 +278,12 @@ impl crate::Advent for MonkeyMap {
             _ => unimplemented!()
         };
 
-        let w = self.sides.get_val(&current_side_coord).as_ref().unwrap().width;
-        let sx = current_side_coord.x;
-        let h = self.sides.get_val(&current_side_coord).as_ref().unwrap().height;
-        let sy = current_side_coord.y;
-        println!("W:{}, SX: {}, H: {}, SY: {}", w, sx, h, sy);
-        let x_mul = w * sx;
-        let y_mul =  h * sy;
+        let x_mul = self.sides.get_val(&current_side_coord).as_ref().unwrap().width * current_side_coord.x;
+        let y_mul =  self.sides.get_val(&current_side_coord).as_ref().unwrap().height * current_side_coord.y;
 
         let x = current_inner_position.coord.x + 1 + x_mul;
         let y = current_inner_position.coord.y + 1 + y_mul;
         
-        println!("X: {}, xmul: {}, Y: {}, ymul: {}", x, x_mul, y, y_mul);
         let result = {
             1000 * y +
             4 * x +
@@ -335,8 +300,7 @@ impl MonkeyMap {
             .filter(|c| {
                 *self.flattened_map.get_val(c) != Space::Void
             })
-            .enumerate()
-            .peekable();
+            .enumerate();
         let mut previous_coord = current_position.coord;
         while let Some((i, c)) = it.next() {       
             if self.flattened_map.get_val(&c).is_pillar() {
@@ -349,11 +313,10 @@ impl MonkeyMap {
         unreachable!("No next coord found! This shouldn't happen.")     
     }
 
-    fn get_next_side_position(&self, side_coord: Coord<usize>, current_position: &Point<usize, Direction>, num_steps: usize) -> (usize, C, bool) {
+    fn get_next_side_position(&self, side_coord: C, current_position: &Point<usize, Direction>, num_steps: usize) -> (usize, C, bool) {
         let side = self.sides.get_val(&side_coord).as_ref().unwrap();
         let it = side
-            .direction_iter(current_position.value, current_position.coord)
-            .peekable();
+            .direction_iter(current_position.value, current_position.coord);
         let mut previous_coord = current_position.coord;
         let mut i = 0;
         for c in it {
@@ -365,10 +328,10 @@ impl MonkeyMap {
             previous_coord = c;
             i += 1;
         }
-        return (i + 1, previous_coord, false);   
+        return (i, previous_coord, false);   
     }
 
-    fn exists(&self, c: Option<Coord<usize>>) -> Option<Coord<usize>> {
+    fn exists(&self, c: Option<C>) -> Option<C> {
         match c {
             Some(c) => {
                 if self.sides.get_val(&c).is_some() {
@@ -380,11 +343,11 @@ impl MonkeyMap {
         None
     }
 
-    fn get_next_side(&self, c: &Coord<usize>, direction: Direction) -> (Coord<usize>, isize, bool) {
+    fn get_next_side(&self, c: &C, direction: Direction) -> (C, isize) {
         // Forward coord
         let fc = self.sides.get_neighbour(c, direction);
         match self.exists(fc) {
-            Some(fc) => return (fc, 0, false),
+            Some(fc) => return (fc, 0),
             None => {}
         }
 
@@ -393,7 +356,7 @@ impl MonkeyMap {
             Some(lc) => {
                 let lfc = self.sides.get_neighbour(c, direction.rotate(-45));
                 match self.exists(lfc) {
-                    Some(lfc) => return (lfc, -90, false),
+                    Some(lfc) => return (lfc, -90),
                     _ => {}
                 }
 
@@ -402,7 +365,7 @@ impl MonkeyMap {
                     Some(llc) => {
                         let llfc = self.sides.get_neighbour(&llc, direction);
                         match self.exists(llfc) {
-                            Some(llfc) => return (llfc, 180, true),
+                            Some(llfc) => return (llfc, 180),
                             None => {}
                         }
                     },
@@ -417,7 +380,7 @@ impl MonkeyMap {
                             Some(lblc) => {
                                 let lbllc = self.sides.get_neighbour(&lblc, direction.rotate(-90));
                                 match self.exists(lbllc) {
-                                    Some(lbllc) => return (lbllc, 90, false),
+                                    Some(lbllc) => return (lbllc, 90),
                                     None => {}
                                 }
                             },
@@ -431,7 +394,7 @@ impl MonkeyMap {
                                     Some(lbblc) => {
                                         let lbblbc = self.sides.get_neighbour(&lbblc, direction.rotate(180));
                                         match self.exists(lbblbc) {
-                                            Some(lbblbc) => return (lbblbc, 0, false),
+                                            Some(lbblbc) => return (lbblbc, 0),
                                             None => {}
                                         }
                                     },
@@ -452,7 +415,7 @@ impl MonkeyMap {
             Some(rc) => {
                 let rfc = self.sides.get_neighbour(c, direction.rotate(45));
                 match self.exists(rfc) {
-                    Some(rfc) => return (rfc, 90, false),
+                    Some(rfc) => return (rfc, 90),
                     _ => {}
                 }
 
@@ -461,7 +424,7 @@ impl MonkeyMap {
                     Some(rrc) => {
                         let rrfc = self.sides.get_neighbour(&rrc, direction);
                         match self.exists(rrfc) {
-                            Some(rrfc) => return (rrfc, -180, true),
+                            Some(rrfc) => return (rrfc, -180),
                             None => {}
                         }
                     },
@@ -476,7 +439,7 @@ impl MonkeyMap {
                             Some(rbrc) => {
                                 let rbrrc = self.sides.get_neighbour(&rbrc, direction.rotate(90));
                                 match self.exists(rbrrc) {
-                                    Some(rbrrc) => return (rbrrc, -90, false),
+                                    Some(rbrrc) => return (rbrrc, -90),
                                     None => {}
                                 }
                             },
@@ -491,7 +454,7 @@ impl MonkeyMap {
                                     Some(rbbrc) => {
                                         let rbbrbc = self.sides.get_neighbour(&rbbrc, direction.rotate(180));
                                         match self.exists(rbbrbc) {
-                                            Some(rbbrbc) => return (rbbrbc, 0, false),
+                                            Some(rbbrbc) => return (rbbrbc, 0),
                                             None => {}
                                         }
                                     },
@@ -517,7 +480,7 @@ impl MonkeyMap {
                         let bllc = self.sides.get_neighbour(&blc, direction.rotate(-90));
                         match self.exists(bllc) {
                             Some(bllc) => {
-                                return (bllc, -180, true)
+                                return (bllc, -180)
                             },
                             None => {}
                         }
@@ -530,7 +493,7 @@ impl MonkeyMap {
                                     Some(blbbc) => {
                                         let blbblc = self.sides.get_neighbour(&blbbc, direction.rotate(-90));
                                         match self.exists(blbblc) {
-                                            Some(blbblc) => return (blbblc, 0, true),
+                                            Some(blbblc) => return (blbblc, 0),
                                             None => {}
                                         }
                                     },
@@ -549,7 +512,7 @@ impl MonkeyMap {
                         let brrc = self.sides.get_neighbour(&brc, direction.rotate(90));
                         match self.exists(brrc) {
                             Some(brrc) => {
-                                return (brrc, 180, true)
+                                return (brrc, 180)
                             },
                             None => {}
                         }
@@ -561,7 +524,7 @@ impl MonkeyMap {
                                     Some(brbbc) => {
                                         let brbbrc = self.sides.get_neighbour(&brbbc, direction.rotate(90));
                                         match self.exists(brbbrc) {
-                                            Some(brbbrc) => return (brbbrc, 0, true),
+                                            Some(brbbrc) => return (brbbrc, 0),
                                             None => {}
                                         }
                                     },
@@ -582,7 +545,7 @@ impl MonkeyMap {
                             Some(bblc) => {
                                 let bblbc = self.sides.get_neighbour(&bblc, direction.rotate(180));
                                 match self.exists(bblbc) {
-                                    Some(bblbc) => return (bblbc, 90, false),
+                                    Some(bblbc) => return (bblbc, 90),
                                     None => {}
                                 }
                             },
@@ -593,7 +556,7 @@ impl MonkeyMap {
                             Some(bbrc) => {
                                 let bbrbc = self.sides.get_neighbour(&bbrc, direction.rotate(180));
                                 match self.exists(bbrbc) {
-                                    Some(bbrbc) => return (bbrbc, -90, false),
+                                    Some(bbrbc) => return (bbrbc, -90),
                                     None => {}
                                 }
                             },
@@ -606,33 +569,9 @@ impl MonkeyMap {
             None => {}            
         }
         unreachable!("The side for {} in direction {:?} could not be found", c, direction);
-
-        // Forward left coord
-        // let flc = match direction {
-        //     N => if c.x == 0 || c.y == 0 { None } else { Some(Coord::new(c.x - 1, c.y - 1))},
-        //     E => if c.x == self.sides.width - 1 || c.y == 0 { None } else { Some(Coord::new(c.x + 1, c.y - 1))},
-        //     S => if c.x == self.sides.width - 1 || c.y == self.sides.height - 1 { None } else { Some(Coord::new(c.x + 1, c.y + 1))},
-        //     W => if c.x == 0 || c.y == self.sides.height - 1 { None } else { Some(Coord::new(c.x - 1, c.y + 1)) },
-        //     _ => unreachable!()
-        // };
-
-        // if lc = match direction {_
-        //     N => Coord::new(c.x - 1, c.y),
-        //     E => Coord::new(c.x, c.y - 1),
-        //     S => Coord::new()
-        // }
     }
 }
 
-type G = Grid<Space>;
-struct Cube {
-    d: G,
-    n: G,
-    e: G,
-    s: G,
-    w: G,
-    u: G
-}
 
 #[cfg(test)]
 mod tests {
