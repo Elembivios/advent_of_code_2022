@@ -226,7 +226,7 @@ impl crate::Advent for MonkeyMap {
                     } else {
                         // Switching planes / side
                         let (new_side_coord, side_rotation) = self.get_next_side(
-                            &current_side_coord, current_inner_position.value);                        
+                            &current_side_coord, &current_inner_position.value);                        
                         let c = current_inner_position.coord;
                         let d = current_inner_position.value;
 
@@ -343,7 +343,7 @@ impl MonkeyMap {
         None
     }
 
-    fn get_next_side(&self, c: &C, direction: Direction) -> (C, isize) {
+    fn get_next_side(&self, c: &C, direction: &Direction) -> (C, isize) {
         // Forward coord
         let fc = self.sides.get_neighbour(c, direction);
         match self.exists(fc) {
@@ -351,16 +351,16 @@ impl MonkeyMap {
             None => {}
         }
 
-        let lc = self.sides.get_neighbour(c, direction.rotate(-90));
+        let lc = self.sides.get_neighbour(c, &direction.rotate(-90));
         match self.exists(lc) {
             Some(lc) => {
-                let lfc = self.sides.get_neighbour(c, direction.rotate(-45));
+                let lfc = self.sides.get_neighbour(c, &direction.rotate(-45));
                 match self.exists(lfc) {
                     Some(lfc) => return (lfc, -90),
                     _ => {}
                 }
 
-                let llc = self.sides.get_neighbour(&lc, direction.rotate(-90));
+                let llc = self.sides.get_neighbour(&lc, &direction.rotate(-90));
                 match self.exists(llc) {
                     Some(llc) => {
                         let llfc = self.sides.get_neighbour(&llc, direction);
@@ -372,13 +372,13 @@ impl MonkeyMap {
                     None => {}
                 }
 
-                let lbc = self.sides.get_neighbour(&lc, direction.rotate(180));
+                let lbc = self.sides.get_neighbour(&lc, &direction.rotate(180));
                 match self.exists(lbc) {
                     Some(lbc) => {
-                        let lblc = self.sides.get_neighbour(&lbc, direction.rotate(-90));
+                        let lblc = self.sides.get_neighbour(&lbc, &direction.rotate(-90));
                         match self.exists(lblc) {
                             Some(lblc) => {
-                                let lbllc = self.sides.get_neighbour(&lblc, direction.rotate(-90));
+                                let lbllc = self.sides.get_neighbour(&lblc, &direction.rotate(-90));
                                 match self.exists(lbllc) {
                                     Some(lbllc) => return (lbllc, 90),
                                     None => {}
@@ -386,13 +386,13 @@ impl MonkeyMap {
                             },
                             None => {}
                         }
-                        let lbbc = self.sides.get_neighbour(&lbc, direction.rotate(180));
+                        let lbbc = self.sides.get_neighbour(&lbc, &direction.rotate(180));
                         match self.exists(lbbc) {
                             Some(lbbc) => {
-                                let lbblc = self.sides.get_neighbour(&lbbc, direction.rotate(-90));
+                                let lbblc = self.sides.get_neighbour(&lbbc, &direction.rotate(-90));
                                 match self.exists(lbblc) {
                                     Some(lbblc) => {
-                                        let lbblbc = self.sides.get_neighbour(&lbblc, direction.rotate(180));
+                                        let lbblbc = self.sides.get_neighbour(&lbblc, &direction.rotate(180));
                                         match self.exists(lbblbc) {
                                             Some(lbblbc) => return (lbblbc, 0),
                                             None => {}
@@ -410,16 +410,16 @@ impl MonkeyMap {
             None => {}
         }
 
-        let rc = self.sides.get_neighbour(c, direction.rotate(90));
+        let rc = self.sides.get_neighbour(c, &direction.rotate(90));
         match self.exists(rc) {
             Some(rc) => {
-                let rfc = self.sides.get_neighbour(c, direction.rotate(45));
+                let rfc = self.sides.get_neighbour(c, &direction.rotate(45));
                 match self.exists(rfc) {
                     Some(rfc) => return (rfc, 90),
                     _ => {}
                 }
 
-                let rrc = self.sides.get_neighbour(&rc, direction.rotate(90));
+                let rrc = self.sides.get_neighbour(&rc, &direction.rotate(90));
                 match self.exists(rrc) {
                     Some(rrc) => {
                         let rrfc = self.sides.get_neighbour(&rrc, direction);
@@ -431,13 +431,13 @@ impl MonkeyMap {
                     None => {}
                 }
 
-                let rbc = self.sides.get_neighbour(&rc, direction.rotate(180));
+                let rbc = self.sides.get_neighbour(&rc, &direction.rotate(180));
                 match self.exists(rbc) {
                     Some(rbc) => {
-                        let rbrc = self.sides.get_neighbour(&rbc, direction.rotate(90));
+                        let rbrc = self.sides.get_neighbour(&rbc, &direction.rotate(90));
                         match self.exists(rbrc) {
                             Some(rbrc) => {
-                                let rbrrc = self.sides.get_neighbour(&rbrc, direction.rotate(90));
+                                let rbrrc = self.sides.get_neighbour(&rbrc, &direction.rotate(90));
                                 match self.exists(rbrrc) {
                                     Some(rbrrc) => return (rbrrc, -90),
                                     None => {}
@@ -446,13 +446,13 @@ impl MonkeyMap {
                             None => {}
                         }
 
-                        let rbbc = self.sides.get_neighbour(&rbc, direction.rotate(180));
+                        let rbbc = self.sides.get_neighbour(&rbc, &direction.rotate(180));
                         match self.exists(rbbc) {
                             Some(rbbc) => {
-                                let rbbrc = self.sides.get_neighbour(&rbbc, direction.rotate(90));
+                                let rbbrc = self.sides.get_neighbour(&rbbc, &direction.rotate(90));
                                 match self.exists(rbbrc) {
                                     Some(rbbrc) => {
-                                        let rbbrbc = self.sides.get_neighbour(&rbbrc, direction.rotate(180));
+                                        let rbbrbc = self.sides.get_neighbour(&rbbrc, &direction.rotate(180));
                                         match self.exists(rbbrbc) {
                                             Some(rbbrbc) => return (rbbrbc, 0),
                                             None => {}
@@ -471,13 +471,13 @@ impl MonkeyMap {
         }
 
 
-        let bc = self.sides.get_neighbour(c, direction.rotate(180));
+        let bc = self.sides.get_neighbour(c, &direction.rotate(180));
         match self.exists(bc) {
             Some(bc) => {
-                let blc = self.sides.get_neighbour(&bc, direction.rotate(-90));
+                let blc = self.sides.get_neighbour(&bc, &direction.rotate(-90));
                 match self.exists(blc) {
                     Some(blc) => {
-                        let bllc = self.sides.get_neighbour(&blc, direction.rotate(-90));
+                        let bllc = self.sides.get_neighbour(&blc, &direction.rotate(-90));
                         match self.exists(bllc) {
                             Some(bllc) => {
                                 return (bllc, -180)
@@ -485,13 +485,13 @@ impl MonkeyMap {
                             None => {}
                         }
 
-                        let blbc = self.sides.get_neighbour(&blc, direction.rotate(180));
+                        let blbc = self.sides.get_neighbour(&blc, &direction.rotate(180));
                         match self.exists(blbc) {
                             Some(blbc) => {
-                                let blbbc = self.sides.get_neighbour(&blbc, direction.rotate(180));
+                                let blbbc = self.sides.get_neighbour(&blbc, &direction.rotate(180));
                                 match self.exists(blbbc) {
                                     Some(blbbc) => {
-                                        let blbblc = self.sides.get_neighbour(&blbbc, direction.rotate(-90));
+                                        let blbblc = self.sides.get_neighbour(&blbbc, &direction.rotate(-90));
                                         match self.exists(blbblc) {
                                             Some(blbblc) => return (blbblc, 0),
                                             None => {}
@@ -506,23 +506,23 @@ impl MonkeyMap {
                     },
                     None => {}
                 }
-                let brc = self.sides.get_neighbour(&bc, direction.rotate(90));
+                let brc = self.sides.get_neighbour(&bc, &direction.rotate(90));
                 match self.exists(brc) {
                     Some(brc) => {
-                        let brrc = self.sides.get_neighbour(&brc, direction.rotate(90));
+                        let brrc = self.sides.get_neighbour(&brc, &direction.rotate(90));
                         match self.exists(brrc) {
                             Some(brrc) => {
                                 return (brrc, 180)
                             },
                             None => {}
                         }
-                        let brbc = self.sides.get_neighbour(&brc, direction.rotate(180));
+                        let brbc = self.sides.get_neighbour(&brc, &direction.rotate(180));
                         match self.exists(brbc) {
                             Some(brbc) => {
-                                let brbbc = self.sides.get_neighbour(&brbc, direction.rotate(180));
+                                let brbbc = self.sides.get_neighbour(&brbc, &direction.rotate(180));
                                 match self.exists(brbbc) {
                                     Some(brbbc) => {
-                                        let brbbrc = self.sides.get_neighbour(&brbbc, direction.rotate(90));
+                                        let brbbrc = self.sides.get_neighbour(&brbbc, &direction.rotate(90));
                                         match self.exists(brbbrc) {
                                             Some(brbbrc) => return (brbbrc, 0),
                                             None => {}
@@ -537,13 +537,13 @@ impl MonkeyMap {
                     None => {}
                 }
 
-                let bbc = self.sides.get_neighbour(&bc, direction.rotate(180));
+                let bbc = self.sides.get_neighbour(&bc, &direction.rotate(180));
                 match self.exists(bbc) {
                     Some(bbc) => {
-                        let bblc = self.sides.get_neighbour(&bbc, direction.rotate(-90));
+                        let bblc = self.sides.get_neighbour(&bbc, &direction.rotate(-90));
                         match self.exists(bblc) {
                             Some(bblc) => {
-                                let bblbc = self.sides.get_neighbour(&bblc, direction.rotate(180));
+                                let bblbc = self.sides.get_neighbour(&bblc, &direction.rotate(180));
                                 match self.exists(bblbc) {
                                     Some(bblbc) => return (bblbc, 90),
                                     None => {}
@@ -551,10 +551,10 @@ impl MonkeyMap {
                             },
                             None => {}
                         }
-                        let bbrc = self.sides.get_neighbour(&bbc, direction.rotate(90));
+                        let bbrc = self.sides.get_neighbour(&bbc, &direction.rotate(90));
                         match self.exists(bbrc) {
                             Some(bbrc) => {
-                                let bbrbc = self.sides.get_neighbour(&bbrc, direction.rotate(180));
+                                let bbrbc = self.sides.get_neighbour(&bbrc, &direction.rotate(180));
                                 match self.exists(bbrbc) {
                                     Some(bbrbc) => return (bbrbc, -90),
                                     None => {}

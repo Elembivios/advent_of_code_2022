@@ -1,6 +1,7 @@
 use std::fmt::{self, Display};
 use std::cmp::Ordering;
 use std::ops::{Add, Sub, AddAssign, SubAssign};
+use anyhow::{Error, anyhow};
 use funty::Signed;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -26,7 +27,7 @@ impl<T> Coord<T> {
             Axis::X => &mut self.x,
             Axis::Y => &mut self.y
         }
-    }    
+    }
 }
 
 impl<T> Coord<T> 
@@ -35,6 +36,24 @@ where
 {
     pub fn manhattan_distance(&self, other: &Self) -> T {
         (self.x - other.x).abs() + (self.y - other.y).abs()
+    }    
+}
+
+impl<T> Coord<T>
+where
+    T: num::Integer + Copy
+{
+    pub fn get_neighbour(&self, direction: &Direction) -> Self {
+        match direction {
+            Direction::N => Coord::new(self.x, self.y + num::one()),
+            Direction::NE => Coord::new(self.x + num::one(), self.y + num::one()),
+            Direction::E => Coord::new(self.x + num::one(), self.y),
+            Direction::SE => Coord::new(self.x + num::one(), self.y - num::one()),
+            Direction::S => Coord::new(self.x, self.y - num::one()),
+            Direction::SW => Coord::new(self.x - num::one(), self.y - num::one()),
+            Direction::W => Coord::new(self.x - num::one(), self.y),
+            Direction::NW => Coord::new(self.x - num::one(), self.y + num::one()),
+        }
     }
 }
 
@@ -133,11 +152,44 @@ pub enum Direction {
     NE, NW, SE, SW
 }
 
+impl TryFrom<&str> for Direction {
+    type Error = Error;
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "N" => Ok(Direction::N),
+            "NE" => Ok(Direction::NE),
+            "E" => Ok(Direction::E),
+            "SE" => Ok(Direction::SE),
+            "S" => Ok(Direction::S),
+            "SW" => Ok(Direction::SW),
+            "W" => Ok(Direction::W),
+            "NW" => Ok(Direction::NW),
+            _ => Err(anyhow!["Invalid value for direction `{}`", value])
+        }
+    }
+}
+
+impl fmt::Display for Direction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            Direction::N => "N",
+            Direction::NE => "NE",
+            Direction::E => "E",
+            Direction::SE => "SE",
+            Direction::S => "S",
+            Direction::SW => "SW",
+            Direction::W => "W",
+            Direction::NW => "NW"
+        };
+        write!(f, "{}", s)
+    }
+}
+
 pub const TOUCHING_DIRECTIONS: [Direction; 4] = [
     Direction::N, Direction::E, Direction::S, Direction::W
 ];
 
-const DIRECTIONS: [Direction; 8]  = [
+pub const DIRECTIONS: [Direction; 8]  = [
     Direction::N, Direction::NE, Direction::E, Direction::SE,
     Direction::S, Direction::SW, Direction::W, Direction::NW
 ];
@@ -223,7 +275,19 @@ impl<V> Grid<V>
         }
     }
 
-    pub fn get_neighbour(&self, coord: &Coord<usize>, direction: Direction) -> Option<Coord<usize>> {
+    pub fn contains<T>(&self, coord: &Coord<T>) -> bool
+    where T: num::Integer + Copy + num::FromPrimitive
+    {   
+        let h = num::FromPrimitive::from_usize(self.height).unwrap();
+        let w = num::FromPrimitive::from_usize(self.width).unwrap();        
+        if coord.y >= num::zero() && coord.y < h && coord.x >= num::zero() && coord.x < w {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn get_neighbour(&self, coord: &Coord<usize>, direction: &Direction) -> Option<Coord<usize>> {
         match direction {
             Direction::N => if coord.y == 0 { None } else { Some(Coord::new(coord.x, coord.y - 1)) },            
             Direction::E => if coord.x == self.width - 1 { None } else { Some(Coord::new(coord.x + 1, coord.y)) },
@@ -236,8 +300,12 @@ impl<V> Grid<V>
         }
     }
 
+    pub fn get_index(&self, coord: &Coord<usize>) -> usize {
+        coord.y * self.width + coord.x
+    }
+
     pub fn get_val(&self, coord: &Coord<usize>) -> &V {
-        &self.map[coord.y * self.width + coord.x]
+        &self.map[self.get_index(coord)]
     }
 
     pub fn get_val_mut(&mut self, coord: &Coord<usize>) -> &mut V {
@@ -256,29 +324,15 @@ impl<V> Grid<V>
         TOUCHING_DIRECTIONS
             .iter()
             .filter_map(|direction| {
-                self.get_neighbour(coord, *direction)
+                self.get_neighbour(coord, direction)
             }).collect()
-        // let mut neighbours = vec![];
-        // if coord.x < self.width - 1 {
-        //     neighbours.push(Coord::new(coord.x + 1, coord.y));
-        // }
-        // if coord.y < self.height - 1 {
-        //     neighbours.push(Coord::new(coord.x, coord.y + 1));
-        // }
-        // if coord.x > 0 {            
-        //     neighbours.push(Coord::new(coord.x - 1, coord.y));            
-        // }        
-        // if coord.y > 0 {
-        //     neighbours.push(Coord::new(coord.x, coord.y - 1));
-        // }        
-        // neighbours
     }
 
     pub fn neigbour_coords_optional(&self, coord: &Coord<usize>) -> Vec<Option<Coord<usize>>> {
         TOUCHING_DIRECTIONS
             .iter()
             .map(|direction| {
-                self.get_neighbour(coord, *direction)
+                self.get_neighbour(coord, direction)
             }).collect()
     }
 
@@ -323,11 +377,26 @@ impl<V> Grid<V>
         (0..self.height).into_iter().map(move |y| (0..self.width).into_iter().map(move |x| Coord::new(x, y))).flatten()
     }
 
+    // pub fn iter_coords_mut(&mut self) -> impl Iterator<Item=
+    
+
     pub fn iter_points(&self) -> impl Iterator<Item=Point<usize, &V>> + '_ {
         self.iter_coords().map(|c| {
             let val = self.get_val(&c);
             Point::from_coord(c, val)
         })
+    }
+    
+    pub fn iter_points_mut(&mut self) -> impl Iterator<Item=Point<usize, &mut V>> {
+        self.map
+            .iter_mut()
+            .enumerate()
+            .map(|(i, v)| {
+                let y = i / self.width;
+                let x = i % self.width;
+                let c = Coord::new(x, y);
+                Point::from_coord(c, v)
+            })
     }
 
     pub fn direction_iter(&self, direction: Direction, current_coord: Coord<usize>) -> GridDirectionIterator {
@@ -486,6 +555,16 @@ impl Iterator for GridWrappedDirectionIterator {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn construct_grid() -> Grid<char> {
+        let map = (0..10).into_iter().map(|_y| {
+            (0..10).into_iter().map(|_x| {
+                '.'
+            }).collect()
+        }).collect();
+        Grid::new(map)
+    }
+
     #[test]
     fn test_direction_rotation() {
         use Direction::*;
@@ -503,5 +582,35 @@ mod tests {
         assert_eq!(S.rotate(90), W);
         assert_eq!(S.rotate(-90), E);
 
+    }
+
+    #[test]
+    fn test_coord_neighbours() {
+        let c = Coord::new(0, 0);
+        let neighbours: Vec<_> = DIRECTIONS.iter().map(|dir| {
+            c.get_neighbour(dir)
+        }).collect();  
+        assert_eq!(neighbours, vec![
+            Coord::new(0, 1),
+            Coord::new(1, 1),
+            Coord::new(1, 0),
+            Coord::new(1, -1),
+            Coord::new(0, -1),
+            Coord::new(-1, -1),
+            Coord::new(-1, 0),
+            Coord::new(-1, 1),
+        ])
+    }
+
+    #[test]
+    fn test_contains() {
+        let grid = construct_grid();
+        println!("{}", grid);
+        let c = Coord::new(0, 0);
+        assert_eq!(grid.contains(&c), true);
+        let c = Coord::new(-1, -1);
+        assert_eq!(grid.contains(&c), false);
+        let c: Coord<usize> = Coord::new(1, 1);
+        assert_eq!(grid.contains(&c), true);
     }
 }
